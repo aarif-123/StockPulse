@@ -164,6 +164,14 @@ npm run dev
 ```
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
+### 5. Running with Docker (Bonus Feature)
+You can build and spin up the entire multi-container environment locally via Docker Compose:
+```bash
+# Build and run the services
+docker-compose up --build
+```
+This serves the React frontend (via Nginx) on port `80`, and runs the Express API server on port `5000` (which the Nginx proxy automatically talks to). Ensure you define your environment variables (like `DATABASE_URL` and `JWT_SECRET`) in your terminal or a root `.env` file first.
+
 ---
 
 ## API Documentation & Postman Collection
