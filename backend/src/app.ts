@@ -15,7 +15,7 @@ const app = express();
 
 app.use(cors({
   origin: env.NODE_ENV === 'production'
-    ? process.env['FRONTEND_URL'] ?? ''
+    ? env.FRONTEND_URL
     : '*',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],

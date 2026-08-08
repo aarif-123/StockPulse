@@ -1,778 +1,240 @@
 # Mini ERP + CRM Operations Portal
 
-A full-stack Operations Portal for managing customers, products, inventory, and delivery challans. Built as a modular monolith with a clean separation between the React frontend and the Express/Prisma backend.
+A complete, production-grade operations portal built for business workflow management. It integrates a customer relationship management (CRM) database, an inventory manager tracking stock adjustments, and a sales delivery challan generator running atomic transaction-safe operations.
 
 ---
 
-## Tech Stack
+## Technical Stack
 
-| Layer      | Technology                                      |
-|------------|-------------------------------------------------|
-| Frontend   | React 18, TypeScript, Vite, React Router, Axios |
-| Backend    | Node.js, TypeScript, Express.js                 |
-| Validation | Zod                                             |
-| ORM        | Prisma                                          |
-| Database   | Supabase PostgreSQL                             |
-| Auth       | JWT (`jsonwebtoken`) + bcrypt                   |
+*   **Frontend**: React 19, TypeScript, Vite, React Router, Axios, Plain CSS (Tailored HSL design system).
+*   **Backend**: Node.js, Express, TypeScript, REST API.
+*   **Validation**: Zod (Fail-fast request contracts).
+*   **ORM**: Prisma.
+*   **Database**: Supabase PostgreSQL.
+*   **Authentication**: JSON Web Tokens (JWT) + Bcrypt password hashing.
 
 ---
 
-## Architecture
+## System Architecture
+
+The application is structured as a **Modular Monolith** to maximize maintenance simplicity, speed development, and provide clean boundaries without the overhead of microservices or message queues.
 
 ```
-Frontend (React + Vite)
-        │
-        │  HTTP / REST
-        ▼
-Express Router
-        │
-        ▼
-Controller  ─── validates request (Zod)
-        │
-        ▼
-Service     ─── business logic
-        │
-        ▼
-Prisma Client
-        │
-        ▼
-Supabase PostgreSQL
+React Portal (Vite Frontend)
+          │
+          │  REST API (Axios + Authorization Interceptor)
+          ▼
+    Express Router
+          │
+          ▼
+     Controllers (HTTP adapters, payload validation via Zod)
+          │
+          ▼
+     Services (Business logic, transactions, row-level locks)
+          │
+          ▼
+    Prisma Client (ORM query layer)
+          │
+          ▼
+   Supabase PostgreSQL (Cloud Database)
 ```
-
-No microservices. No message queues. No unnecessary abstraction layers.
 
 ---
 
 ## Folder Structure
 
-```
+```text
 StockPulse/
 ├── backend/
 │   ├── prisma/
-│   │   └── schema.prisma       # Database schema (6 models, 5 enums)
+│   │   ├── schema.prisma        # Database schema (6 models, 5 enums)
+│   │   └── seed.ts              # Idempotent development credentials seeder
 │   ├── src/
 │   │   ├── config/
-│   │   │   ├── env.ts           # Env validation (fail-fast via Zod)
-│   │   │   └── database.ts      # Singleton PrismaClient
+│   │   │   ├── env.ts           # Zod-validated environment config
+│   │   │   └── database.ts      # PrismaClient instance singleton
 │   │   ├── middleware/
-│   │   │   ├── error-handler.ts # Centralized error handler
-│   │   │   └── not-found.ts     # 404 catch-all
+│   │   │   ├── authenticate.ts  # JWT validation & req.user injection
+│   │   │   ├── authorize.ts     # Role-based middleware gates
+│   │   │   ├── error-handler.ts # Production generic error formatter
+│   │   │   └── not-found.ts     # Catch-all missing endpoints
 │   │   ├── modules/
-│   │   │   ├── auth/            # Phase 2
-│   │   │   ├── customers/       # Phase 2
-│   │   │   ├── products/        # Phase 2
-│   │   │   └── challans/        # Phase 2
-│   │   ├── utils/
-│   │   ├── app.ts               # Express app setup
-│   │   └── server.ts            # Entry point + graceful shutdown
+│   │   │   ├── auth/            # Auth controller, service, schemas, routes
+│   │   │   ├── customers/       # CRM controller, service, schemas, routes
+│   │   │   ├── products/        # Inventory controller, service, schemas, routes
+│   │   │   └── challans/        # Challan controller, service, schemas, routes
+│   │   ├── app.ts               # App setups (CORS, body limiters)
+│   │   └── server.ts            # Bootloader & graceful shutdown listeners
 │   ├── .env.example
-│   ├── package.json
-│   └── tsconfig.json
+│   └── package.json
 │
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   ├── pages/
-│   │   ├── services/            # Axios API clients
-│   │   ├── hooks/
-│   │   ├── types/
-│   │   ├── utils/
-│   │   ├── App.tsx
-│   │   └── main.tsx
+│   │   │   ├── common/          # Route guards & shared components
+│   │   │   └── layout/          # Admin sidebar wrapper layout
+│   │   ├── hooks/               # useAuth authentication context hook
+│   │   ├── pages/               # Login, Dashboard, CRM, Inventory, Challans
+│   │   ├── services/            # Axios API wrappers (auth, customer, product, challan)
+│   │   ├── types/               # Type-safe entity interfaces
+│   │   ├── App.tsx              # Router tree maps
+│   │   └── main.tsx             # Entry hook
 │   ├── .env.example
-│   ├── package.json
-│   └── tsconfig.json
+│   └── package.json
 │
 ├── postman/
+│   ├── mini-erp.postman_collection.json # Production evaluator test suite
 │   └── Mini-ERP-CRM.postman_collection.json
 └── README.md
 ```
 
 ---
 
-## Prerequisites
+## Roles & Permissions Matrix
 
-- **Node.js** ≥ 18.x
-- **npm** ≥ 9.x
-- A **Supabase** project with a PostgreSQL database
+| Feature | ADMIN | SALES | WAREHOUSE | ACCOUNTS |
+|:---|:---:|:---:|:---:|:---:|
+| **Dashboard** | Read-Only | Read-Only | Read-Only | Read-Only |
+| **Customer CRM** | Full CRUD | Full CRUD | No Access | Read-Only |
+| **Customer Follow-up** | Create | Create | No Access | No Access |
+| **Product catalog** | Full CRUD | Read-Only | Full CRUD | Read-Only |
+| **Stock Adjustments (IN/OUT)**| Create | No Access | Create | No Access |
+| **Challans** | Full CRUD | Full CRUD | No Access | Read-Only |
 
 ---
 
-## Installation
+## Local Setup
 
-### 1. Clone the repository
-
+### 1. Clone & Dependencies
 ```bash
 git clone <your-repo-url>
 cd StockPulse
-```
 
-### 2. Install backend dependencies
-
-```bash
+# Install backend dependencies
 cd backend
 npm install
-```
 
-### 3. Install frontend dependencies
-
-```bash
+# Install frontend dependencies
 cd ../frontend
 npm install
 ```
 
----
+### 2. Environment Variables
+Copy `.env.example` configurations.
 
-## Environment Setup
-
-### Backend
-
-```bash
-cd backend
-cp .env.example .env
-```
-
-Edit `backend/.env`:
-
+**Backend (`backend/.env`)**:
 ```env
 NODE_ENV=development
 PORT=5000
-DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<database>
-JWT_SECRET=<generate-a-strong-random-secret>
+DATABASE_URL=postgresql://postgres:<password>@<host>:<port>/postgres
+JWT_SECRET=super_secret_dev_passphrase_change_in_production
 JWT_EXPIRES_IN=1d
+FRONTEND_URL=http://localhost:5173
 ```
 
-### Frontend
-
-```bash
-cd frontend
-cp .env.example .env
-```
-
-Edit `frontend/.env`:
-
+**Frontend (`frontend/.env`)**:
 ```env
 VITE_API_URL=http://localhost:5000/api
 ```
 
-> ⚠️ **Never commit `.env` files.** They are listed in all `.gitignore` files.
-
----
-
-## Supabase Database Setup
-
-1. Go to [supabase.com](https://supabase.com) and create a new project.
-2. Navigate to **Project Settings → Database → Connection string → URI**.
-3. Copy the connection string and paste it as `DATABASE_URL` in `backend/.env`.
-4. Make sure your Supabase project is not paused (free tier pauses after 7 days of inactivity).
-
----
-
-## Prisma Setup
-
+### 3. Database Migration & Seeding
 From the `backend/` directory:
-
 ```bash
-# Generate the Prisma client (run after any schema change)
+# Generate the local Prisma Client client definitions
 npm run prisma:generate
 
-# Apply the initial migration to Supabase
-npm run prisma:migrate
-# When prompted, name the migration: init
+# Execute migration scripts against the Postgres database
+npx prisma migrate dev --name init
 
-# Optional: open Prisma Studio to browse your database
-npm run prisma:studio
+# Populate mock test users
+npm run seed
 ```
 
----
-
-## Development Commands
-
-### Backend
-
+### 4. Running the Servers
+**Backend**:
 ```bash
 cd backend
-
-npm run dev          # Start dev server with hot reload (ts-node-dev)
-npm run build        # Compile TypeScript to dist/
-npm start            # Run compiled output from dist/
+npm run dev
 ```
 
-### Frontend
-
+**Frontend**:
 ```bash
 cd frontend
-
-npm run dev          # Start Vite dev server (default: http://localhost:5173)
-npm run build        # Production build to dist/
-npm run preview      # Preview production build locally
+npm run dev
 ```
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ---
 
-## Health Endpoint
+## API Documentation & Postman Collection
 
-Verify the backend is running:
+Evaluators can import [postman/mini-erp.postman_collection.json](file:///c:/Users/Mohmmed%20Aarif/projects/fundsRoom/StockPulse/postman/mini-erp.postman_collection.json) to quickly test the entire backend API.
 
-```bash
-curl http://localhost:5000/api/health
-```
+### Workflow Testing Sequence
+1.  **POST `/api/auth/login`**: Authenticate using role credentials (e.g. `sales@example.com` / `Password123!`). Copy the returned `token`.
+2.  **Collection Variable**: Paste the JWT in the Postman `authToken` collection variable. All subsequent requests automatically inherit this header.
+3.  **POST `/api/customers`**: Create a customer (stores Name, Mobile, Email, Business Name, address, customerType, status).
+4.  **POST `/api/products`**: Log in as `admin@example.com` (requires WAREHOUSE/ADMIN), define a new inventory item with initial stock `10`.
+5.  **POST `/api/products/:id/stock-movements`**: perform a `Stock IN` of `20` items. Verify stock levels rise to `30`.
+6.  **POST `/api/challans`**: Log back in as `sales@example.com`. Create a new challan in `DRAFT` status with the product and quantity `10`.
+7.  **GET `/api/products/:id`**: Check the product stock. Verify it remains `30` (DRAFT challans do not touch inventory).
+8.  **POST `/api/challans/:id/confirm`**: Click Confirm. State transitions to `CONFIRMED`.
+9.  **GET `/api/products/:id`**: Verify stock levels decreased to `20`.
+10. **GET `/api/products/:id/stock-movements`**: Verify a new audit log `OUT` movement has been recorded with reason and creator details.
 
-Expected response (`HTTP 200`):
-
-```json
-{ "status": "ok" }
-```
-
----
-
-## Database Schema
-
-| Model          | Description                                        |
-|----------------|----------------------------------------------------|
-| `User`         | Portal users with role-based access (Phase 2 auth) |
-| `Customer`     | CRM customers/leads                                |
-| `Product`      | Inventory items / SKUs                             |
-| `StockMovement`| Audit log of stock changes (IN / OUT)              |
-| `Challan`      | Delivery challan header                            |
-| `ChallanItem`  | Challan line items with product snapshots          |
+### Insufficient Stock Verification
+*   Create a draft challan requesting quantity `25` (when available stock is `20`).
+*   Click Confirm. The transaction fails with `400 Bad Request` and rolls back all database operations, leaving stock level at `20`.
 
 ---
 
-## Postman Collection
+## Technical Design Decisions
 
-Import `postman/Mini-ERP-CRM.postman_collection.json` into Postman.
+### 1. Stock Transaction Safety
+To prevent double-booking and concurrent order races:
+*   Confirming a delivery challan aggregates items by ID and locks affected rows inside a single database transaction using `SELECT ... FOR UPDATE`:
+    ```sql
+    SELECT * FROM products WHERE id IN (...) FOR UPDATE
+    ```
+*   Checks inventory and decrements stock levels inside the isolated lock.
+*   Writes Audit Log `StockMovement` files.
+*   Updates Challan status to `CONFIRMED`.
+*   If any single item is short of stock, the entire transaction rolls back atomically.
 
-Set the `baseUrl` collection variable to `http://localhost:5000/api` for local development.
+### 2. Product Snapshots
+When a Challan draft is created, it copies the current product name, SKU, and unit price into the `ChallanItem` table. This creates a historical snapshot so that future catalog edits (like a price increase or renaming) do not alter past delivery records.
+
+### 3. Modular Monolith Architecture
+Keeps the code clean and maintains high boundaries. Each domain (Auth, Customers, Products, Challans) encapsulates its schema, validation, logic, and router.
 
 ---
 
-## Authentication (Phase 2)
+## Deployment Settings
 
-### Architecture
-
-Application-level JWT authentication — **no Supabase Auth**. Supabase is used only as the PostgreSQL provider.
-
-```
-POST /api/auth/login
-        │
-        ▼
-Zod validates body
-        │
-        ▼
-Prisma finds user by email
-        │
-        ▼
-bcrypt compares password hash
-        │
-        ▼
-jsonwebtoken signs JWT (userId + role)
-        │
-        ▼
-Returns { token, user }  ← passwordHash never included
-```
-
-Protected routes use the `authenticate` middleware which verifies the JWT **without a database call** (stateless). The `authorize` middleware then checks the role.
-
-### User Roles
-
-| Role | Description |
-|------|-------------|
-| `ADMIN` | Full access — manages users and system configuration |
-| `SALES` | Access to customers and challans |
-| `WAREHOUSE` | Access to products and inventory |
-| `ACCOUNTS` | Access to financial data and reports |
-
-### Development Seed Credentials
-
-> ⚠️ **DEVELOPMENT ONLY** — These credentials are for local development and testing. Never use them in production.
-
-| Role | Email | Password |
-|------|-------|----------|
-| ADMIN | `admin@example.com` | `Password123!` |
-| SALES | `sales@example.com` | `Password123!` |
-| WAREHOUSE | `warehouse@example.com` | `Password123!` |
-| ACCOUNTS | `accounts@example.com` | `Password123!` |
-
-Seed the database:
-
-```bash
-cd backend
-npx prisma db seed
-```
-
-The seed is idempotent — safe to run multiple times.
-
-### Auth Endpoints
-
-#### POST /api/auth/login
-
-```bash
-curl -X POST http://localhost:5000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "admin@example.com", "password": "Password123!"}'
-```
-
-Success (`200`):
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": "cmsk48qjd0000dsy3rlp5qyqc",
-    "name": "Admin User",
-    "email": "admin@example.com",
-    "role": "ADMIN"
-  }
-}
-```
-
-Invalid credentials (`401`):
-```json
-{ "status": "error", "message": "Invalid email or password." }
-```
-
-#### GET /api/auth/me
-
-Returns the authenticated user's profile. Requires a valid Bearer token.
-
-```bash
-curl http://localhost:5000/api/auth/me \
-  -H "Authorization: Bearer <your-token>"
-```
-
-Success (`200`):
-```json
-{
-  "user": {
-    "id": "cmsk48qjd0000dsy3rlp5qyqc",
-    "name": "Admin User",
-    "email": "admin@example.com",
-    "role": "ADMIN"
-  }
-}
-```
-
-### Authorization Header Format
-
-All protected routes require:
-
-```
-Authorization: Bearer <jwt-token>
-```
-
-### 401 vs 403
-
-| Code | Meaning | When |
-|------|---------|------|
-| `401 Unauthorized` | Not authenticated | Token missing, expired, malformed, or invalid |
-| `403 Forbidden` | Authenticated but insufficient role | Valid token but role not in the allowed list |
+*   **Frontend**: Vercel. Point Vite root folder to `/frontend` with build settings `npm run build` and environment variable `VITE_API_URL` pointing to Render API server URL.
+*   **Backend**: Render. Point base folder to `/backend` with start command `npm start`, build command `npm install && npm run build`, and environment variables (`NODE_ENV=production`, `PORT`, `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `FRONTEND_URL` pointing to Vercel page).
+*   **Database**: Supabase PostgreSQL. Configure environment credentials in Render.
 
 ---
 
-## Postman Collection
+## Test Credentials
 
-Import `postman/Mini-ERP-CRM.postman_collection.json` into Postman.
+Use these development credentials to test all portal workflows:
 
-1. Set the `baseUrl` collection variable to `http://localhost:5000/api`.
-2. Run **POST /auth/login** — the test script automatically saves the token to `{{authToken}}`.
-3. All subsequent requests use `{{authToken}}` automatically.
+| Role | Username | Password |
+|:---|:---|:---|
+| **ADMIN** | `admin@example.com` | `Password123!` |
+| **SALES** | `sales@example.com` | `Password123!` |
+| **WAREHOUSE** | `warehouse@example.com` | `Password123!` |
+| **ACCOUNTS** | `accounts@example.com` | `Password123!` |
 
----
-
-## Customer CRM Module (Phase 3)
-
-### Endpoint Reference
-
-All endpoints are prefixed with `/api`.
-
-#### 1. POST /customers
-Create a new customer profile.
-*   **Authorization**: Requires `ADMIN` or `SALES` role.
-*   **Request Body**:
-    ```json
-    {
-      "name": "ABC Traders",
-      "mobile": "9876543210",
-      "email": "abc@example.com",
-      "businessName": "ABC Traders Pvt Ltd",
-      "gstNumber": "22AAAAA0000A1Z5", // Optional, unique
-      "customerType": "WHOLESALE", // RETAIL, WHOLESALE, DISTRIBUTOR
-      "address": "Ludhiana, Punjab",
-      "status": "LEAD", // LEAD, ACTIVE, INACTIVE
-      "followUpDate": "2026-08-15", // Optional, YYYY-MM-DD
-      "notes": "Interested in monthly supply" // Optional
-    }
-    ```
-*   **Success Response** (`201 Created`):
-    ```json
-    {
-      "data": {
-        "id": "cmsk48qjd0000dsy3rlp5qyqc",
-        "name": "ABC Traders",
-        "mobile": "9876543210",
-        "email": "abc@example.com",
-        "businessName": "ABC Traders Pvt Ltd",
-        "customerType": "WHOLESALE",
-        "gstNumber": "22AAAAA0000A1Z5",
-        "address": "Ludhiana, Punjab",
-        "status": "LEAD",
-        "followUpDate": "2026-08-15T00:00:00.000Z",
-        "notes": "Interested in monthly supply",
-        "createdAt": "2026-08-08T09:00:12.000Z",
-        "updatedAt": "2026-08-08T09:00:12.000Z"
-      }
-    }
-    ```
-
-#### 2. GET /customers
-List customers with support for pagination, search, and filtering.
-*   **Authorization**: Requires `ADMIN`, `SALES`, `WAREHOUSE`, or `ACCOUNTS` role.
-*   **Query Parameters**:
-    *   `page` (default: 1): Integer $\ge 1$
-    *   `limit` (default: 10, max: 100): Integer $\ge 1$
-    *   `search`: Search string matched case-insensitively across `name`, `mobile`, `email`, and `businessName`
-    *   `status`: Filter by customer status (`LEAD`, `ACTIVE`, `INACTIVE`)
-    *   `customerType`: Filter by customer type (`RETAIL`, `WHOLESALE`, `DISTRIBUTOR`)
-*   **Success Response** (`200 OK`):
-    ```json
-    {
-      "data": [
-        {
-          "id": "cmsk48qjd0000dsy3rlp5qyqc",
-          "name": "ABC Traders",
-          "mobile": "9876543210",
-          "email": "abc@example.com",
-          "businessName": "ABC Traders Pvt Ltd",
-          "customerType": "WHOLESALE",
-          "gstNumber": "22AAAAA0000A1Z5",
-          "address": "Ludhiana, Punjab",
-          "status": "LEAD",
-          "followUpDate": "2026-08-15T00:00:00.000Z",
-          "notes": "Interested in monthly supply",
-          "createdAt": "2026-08-08T09:00:12.000Z",
-          "updatedAt": "2026-08-08T09:00:12.000Z"
-        }
-      ],
-      "pagination": {
-        "page": 1,
-        "limit": 10,
-        "total": 1,
-        "totalPages": 1
-      }
-    }
-    ```
-
-#### 3. GET /customers/:id
-Retrieve details of a single customer.
-*   **Authorization**: Requires `ADMIN`, `SALES`, `WAREHOUSE`, or `ACCOUNTS` role.
-*   **Success Response** (`200 OK`):
-    ```json
-    {
-      "data": {
-        "id": "cmsk48qjd0000dsy3rlp5qyqc",
-        "name": "ABC Traders",
-        ...
-      }
-    }
-    ```
-*   **Error Response** (`404 Not Found`):
-    ```json
-    {
-      "status": "error",
-      "message": "Customer with id \"cmsk48qjd0000dsy3rlp5qyqc\" not found."
-    }
-    ```
-
-#### 4. PUT /customers/:id
-Update fields of an existing customer (partial updates are supported).
-*   **Authorization**: Requires `ADMIN` or `SALES` role.
-*   **Request Body**: (Any subset of validation fields, excluding `id` and `createdAt`)
-*   **Success Response** (`200 OK`):
-    ```json
-    {
-      "data": {
-        "id": "cmsk48qjd0000dsy3rlp5qyqc",
-        "name": "ABC Traders Updated",
-        ...
-      }
-    }
-    ```
-
-#### 5. POST /customers/:id/follow-ups
-Add or update follow-up date and notes for a customer.
-*   **Authorization**: Requires `ADMIN` or `SALES` role.
-*   **Request Body**:
-    ```json
-    {
-      "followUpDate": "2026-08-20", // YYYY-MM-DD
-      "notes": "Customer requested a quotation."
-    }
-    ```
-*   **Success Response** (`200 OK`):
-    ```json
-    {
-      "data": {
-        "id": "cmsk48qjd0000dsy3rlp5qyqc",
-        "name": "ABC Traders Updated",
-        "followUpDate": "2026-08-20T00:00:00.000Z",
-        "notes": "Customer requested a quotation.",
-        ...
-      }
-    }
-    ```
-
-### Error Scenarios & Status Codes
-*   `400 Bad Request`: Input validation failed (e.g., malformed email, invalid enum values, invalid date format) or duplicate unique keys (GST / Email).
-*   `401 Unauthorized`: Missing or invalid bearer token.
-*   `403 Forbidden`: Authenticated user does not have permissions (e.g. WAREHOUSE role trying to create/edit customer).
-*   `404 Not Found`: Customer ID not found.
+*These are pre-seeded development credentials only. Never use them in production settings.*
 
 ---
 
-## Product & Inventory Module (Phase 4)
+## Known Limitations
 
-### Endpoint Reference
-
-All endpoints are prefixed with `/api`.
-
-#### 1. POST /products
-Create a new product profile.
-*   **Authorization**: Requires `ADMIN` or `WAREHOUSE` role.
-*   **Request Body**:
-    ```json
-    {
-      "name": "Wireless Mouse",
-      "sku": "MOU-001",
-      "category": "Computer Accessories",
-      "unitPrice": 499.00,
-      "currentStock": 50,
-      "minimumStock": 10,
-      "warehouseLocation": "WH-A-01"
-    }
-    ```
-*   **Success Response** (`201 Created`):
-    ```json
-    {
-      "data": {
-        "id": "cmsk48qjd0000dsy3rlp5qyqd",
-        "name": "Wireless Mouse",
-        "sku": "MOU-001",
-        "category": "Computer Accessories",
-        "unitPrice": 499,
-        "currentStock": 50,
-        "minimumStock": 10,
-        "warehouseLocation": "WH-A-01",
-        "createdAt": "2026-08-08T10:40:00.000Z",
-        "updatedAt": "2026-08-08T10:40:00.000Z"
-      }
-    }
-    ```
-
-#### 2. GET /products
-List products with pagination, search, and filtering.
-*   **Authorization**: Requires `ADMIN`, `SALES`, `WAREHOUSE`, or `ACCOUNTS` role.
-*   **Query Parameters**:
-    *   `page` (default: 1): Integer $\ge 1$
-    *   `limit` (default: 10, max: 100): Integer $\ge 1$
-    *   `search`: Case-insensitive match across `name`, `sku`, and `category`
-    *   `category`: Filter by product category
-    *   `lowStock`: Filter low-stock products (`currentStock <= minimumStock`) if set to `true`
-*   **Success Response** (`200 OK`):
-    ```json
-    {
-      "data": [...],
-      "pagination": {
-        "page": 1,
-        "limit": 10,
-        "total": 25,
-        "totalPages": 3
-      }
-    }
-    ```
-
-#### 3. GET /products/:id
-Retrieve single product details.
-*   **Authorization**: Accessible to all authenticated roles.
-*   **Success Response** (`200 OK`):
-    ```json
-    { "data": { "id": "...", "name": "Wireless Mouse", ... } }
-    ```
-
-#### 4. PUT /products/:id
-Update product profile.
-*   **Authorization**: Requires `ADMIN` or `WAREHOUSE` role.
-*   **Important Rules**: Direct updates to `currentStock` are stripped and rejected. Stock can only be altered via stock movements or challan confirmation.
-*   **Success Response** (`200 OK`):
-    ```json
-    { "data": { "id": "...", "name": "Wireless Mouse Premium", ... } }
-    ```
-
-#### 5. POST /products/:id/stock-movements
-Create a stock movement (IN or OUT) and adjust product stock level.
-*   **Authorization**: Requires `ADMIN` or `WAREHOUSE` role.
-*   **Rules**:
-    *   `type`: `IN` or `OUT`
-    *   `quantity`: Integer $> 0$
-    *   `reason`: Non-empty string
-    *   If type is `OUT`, quantity must be $\le$ `currentStock`, otherwise fails with `400 Bad Request`.
-*   **Success Response** (`201 Created`):
-    ```json
-    {
-      "message": "Stock movement recorded successfully.",
-      "data": {
-        "product": { "id": "...", "currentStock": 45, ... },
-        "movement": { "id": "...", "type": "OUT", "quantity": 5, "reason": "Damaged goods", "createdBy": "..." }
-      }
-    }
-    ```
-
-#### 6. GET /products/:id/stock-movements
-List stock movements for a product, sorted newest first.
-*   **Authorization**: Accessible to all authenticated roles.
-*   **Success Response** (`200 OK`):
-    ```json
-    {
-      "data": [
-        {
-          "id": "...",
-          "quantity": 5,
-          "type": "OUT",
-          "reason": "Damaged goods",
-          "createdAt": "...",
-          "user": { "id": "...", "name": "Warehouse User", "email": "warehouse@example.com", "role": "WAREHOUSE" }
-        }
-      ],
-      "pagination": { "page": 1, "limit": 10, "total": 1, "totalPages": 1 }
-    }
-    ```
-
----
-
-## Sales Challan Module (Phase 5)
-
-### Endpoint Reference
-
-All endpoints are prefixed with `/api`.
-
-#### 1. POST /challans
-Create a new sales challan in `DRAFT` status.
-*   **Authorization**: Requires `ADMIN` or `SALES` role.
-*   **Important Rules**:
-    *   Does NOT reduce product stock or create stock movements.
-    *   Copies current product name, SKU, and price snapshot into the items list to preserve historical invoice correctness.
-    *   Generates a sequential readable challan number (e.g. `CH-000001`).
-*   **Request Body**:
-    ```json
-    {
-      "customerId": "cust-uuid-1234",
-      "items": [
-        { "productId": "prod-uuid-keyboard", "quantity": 5 },
-        { "productId": "prod-uuid-mouse", "quantity": 2 }
-      ]
-    }
-    ```
-*   **Success Response** (`201 Created`):
-    ```json
-    {
-      "data": {
-        "id": "challan-uuid-9999",
-        "challanNumber": "CH-000001",
-        "status": "DRAFT",
-        "totalQuantity": 7,
-        "customerId": "cust-uuid-1234",
-        "createdBy": "sales-uuid",
-        "items": [
-          {
-            "id": "item-uuid-1",
-            "productId": "prod-uuid-keyboard",
-            "productName": "Wireless Keyboard",
-            "sku": "KEY-123",
-            "unitPrice": 1299.00,
-            "quantity": 5
-          },
-          ...
-        ]
-      }
-    }
-    ```
-
-#### 2. GET /challans
-List all challans, sorted newest first.
-*   **Authorization**: Accessible to all authenticated roles.
-*   **Success Response** (`200 OK`):
-    ```json
-    {
-      "data": [...],
-      "pagination": { "page": 1, "limit": 10, "total": 20, "totalPages": 2 }
-    }
-    ```
-
-#### 3. GET /challans/:id
-Retrieve single challan details with snapshot items and customer info.
-*   **Authorization**: Accessible to all authenticated roles.
-*   **Success Response** (`200 OK`):
-    ```json
-    {
-      "data": {
-        "id": "...",
-        "challanNumber": "CH-000001",
-        "status": "DRAFT",
-        "customer": { "id": "...", "name": "ABC Traders" },
-        "items": [...]
-      }
-    }
-    ```
-
-#### 4. POST /challans/:id/confirm
-Confirm a draft challan.
-*   **Authorization**: Requires `ADMIN` or `SALES` role.
-*   **Transactional stock check**:
-    1. Re-locks and checks product stock inside an atomic transaction.
-    2. If stock is sufficient, decrements product `currentStock` and creates one `OUT` stock movement per item.
-    3. Status is updated to `CONFIRMED`.
-    4. If stock is insufficient, the entire transaction rolls back.
-*   **Success Response** (`200 OK`):
-    ```json
-    {
-      "message": "Challan confirmed successfully.",
-      "data": {
-        "id": "...",
-        "status": "CONFIRMED",
-        "totalQuantity": 7,
-        "items": [...]
-      }
-    }
-    ```
-*   **Error Response** (`400 Bad Request`):
-    ```json
-    {
-      "status": "error",
-      "message": "Insufficient stock for product: Wireless Keyboard"
-    }
-    ```
-
-#### 5. POST /challans/:id/cancel
-Cancel a draft challan.
-*   **Authorization**: Requires `ADMIN` or `SALES` role.
-*   **Rules**: Only `DRAFT` challans can be cancelled. Does NOT modify stock or write stock movements. `CONFIRMED` challans cannot be cancelled.
-*   **Success Response** (`200 OK`):
-    ```json
-    {
-      "message": "Challan cancelled successfully.",
-      "data": {
-        "id": "...",
-        "status": "CANCELLED"
-      }
-    }
-    ```
-
----
-
-## Roadmap
-
-- **Phase 1** ✅ — Project foundation
-- **Phase 2** ✅ — Authentication (JWT + bcrypt)
-- **Phase 3** ✅ — Customer CRM Backend Module
-- **Phase 4** ✅ — Product & Inventory modules
-- **Phase 5** ✅ — Sales Challan Backend Module
-- **Phase 6** — Reports & dashboard
+*   **No Invoice Generation**: Billing transactions must be handled in downstream ERP components.
+*   **No Purchase Orders Module**: Inbound items are added manually via the Stock IN movement panels.
+*   **No Product Image uploads**: Product profiles use text description metadata and storage locations only.
+*   **No CI/CD pipelines**: Deployment is initiated manually on Git commit pushes.
