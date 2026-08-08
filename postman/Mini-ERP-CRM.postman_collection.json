@@ -146,18 +146,524 @@
     },
     {
       "name": "Customers (Phase 3)",
-      "item": [],
-      "description": "Customer CRUD endpoints will be added in Phase 3."
+      "item": [
+        {
+          "name": "POST /customers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"ABC Traders\",\n  \"mobile\": \"9876543210\",\n  \"email\": \"abc@example.com\",\n  \"businessName\": \"ABC Traders Pvt Ltd\",\n  \"gstNumber\": \"22AAAAA0000A1Z5\",\n  \"customerType\": \"WHOLESALE\",\n  \"address\": \"Ludhiana, Punjab\",\n  \"status\": \"LEAD\",\n  \"followUpDate\": \"2026-08-15\",\n  \"notes\": \"Interested in monthly supply\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers"]
+            },
+            "description": "Create a new customer. Requires ADMIN or SALES role."
+          }
+        },
+        {
+          "name": "GET /customers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers?page=1&limit=10&search=&status=&customerType=",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "status",
+                  "value": ""
+                },
+                {
+                  "key": "customerType",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "List customers with pagination, case-insensitive search, and status/type filters. Accessible to all authenticated roles."
+          }
+        },
+        {
+          "name": "GET /customers/:id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Get a specific customer by ID. Accessible to all authenticated roles."
+          }
+        },
+        {
+          "name": "PUT /customers/:id",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"ABC Traders Updated\",\n  \"mobile\": \"9876543211\",\n  \"email\": \"abc_new@example.com\",\n  \"businessName\": \"ABC Traders Ltd\",\n  \"gstNumber\": \"22AAAAA0000A1Z6\",\n  \"customerType\": \"DISTRIBUTOR\",\n  \"address\": \"Jalandhar, Punjab\",\n  \"status\": \"ACTIVE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Update customer details. Requires ADMIN or SALES role."
+          }
+        },
+        {
+          "name": "POST /customers/:id/follow-ups",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"followUpDate\": \"2026-08-20\",\n  \"notes\": \"Customer requested a quotation.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers/:id/follow-ups",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", ":id", "follow-ups"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Add follow-up date and notes to a customer. Requires ADMIN or SALES role."
+          }
+        }
+      ],
+      "description": "Customer CRM backend module endpoints."
     },
     {
-      "name": "Products (Phase 3)",
-      "item": [],
-      "description": "Product and inventory endpoints will be added in Phase 3."
+      "name": "Products & Inventory (Phase 4)",
+      "item": [
+        {
+          "name": "POST /products",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Wireless Mouse\",\n  \"sku\": \"MOU-001\",\n  \"category\": \"Computer Accessories\",\n  \"unitPrice\": 499.00,\n  \"currentStock\": 50,\n  \"minimumStock\": 10,\n  \"warehouseLocation\": \"WH-A-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"]
+            },
+            "description": "Create a new product. Requires ADMIN or WAREHOUSE role."
+          }
+        },
+        {
+          "name": "GET /products",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products?page=1&limit=10&search=&category=&lowStock=",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "category",
+                  "value": ""
+                },
+                {
+                  "key": "lowStock",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "List and search products. Supports search, category filter, low-stock filter (currentStock <= minimumStock), and pagination. Accessible to all roles."
+          }
+        },
+        {
+          "name": "GET /products/:id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Retrieve details of a single product. Accessible to all roles."
+          }
+        },
+        {
+          "name": "PUT /products/:id",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Wireless Mouse Premium\",\n  \"unitPrice\": 599.00,\n  \"minimumStock\": 15,\n  \"warehouseLocation\": \"WH-A-02\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Update product fields except currentStock. Requires ADMIN or WAREHOUSE role."
+          }
+        },
+        {
+          "name": "POST /products/:id/stock-movements",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"IN\",\n  \"quantity\": 50,\n  \"reason\": \"Purchase received\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/:id/stock-movements",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", ":id", "stock-movements"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Record a stock IN or OUT movement. OUT check fails if insufficient stock. Requires ADMIN or WAREHOUSE role."
+          }
+        },
+        {
+          "name": "GET /products/:id/stock-movements",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/:id/stock-movements?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", ":id", "stock-movements"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "List paginated stock movement history for a product, sorted newest first. Accessible to all roles."
+          }
+        }
+      ],
+      "description": "Product and Inventory endpoints."
     },
     {
-      "name": "Challans (Phase 3)",
-      "item": [],
-      "description": "Delivery challan endpoints will be added in Phase 3."
+      "name": "Sales Challans (Phase 5)",
+      "item": [
+        {
+          "name": "POST /challans",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"\",\n  \"items\": [\n    {\n      \"productId\": \"\",\n      \"quantity\": 5\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/challans",
+              "host": ["{{baseUrl}}"],
+              "path": ["challans"]
+            },
+            "description": "Create a new challan in DRAFT status. Does not modify stock. Requires ADMIN or SALES role."
+          }
+        },
+        {
+          "name": "GET /challans",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/challans?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["challans"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "List paginated challans, sorted newest first. Accessible to all roles."
+          }
+        },
+        {
+          "name": "GET /challans/:id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/challans/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["challans", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Retrieve details of a single challan with snapshot items. Accessible to all roles."
+          }
+        },
+        {
+          "name": "POST /challans/:id/confirm",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/challans/:id/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["challans", ":id", "confirm"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Confirm a DRAFT challan. Decrements stock levels and creates OUT movements atomically inside a transaction. Requires ADMIN or SALES role."
+          }
+        },
+        {
+          "name": "POST /challans/:id/cancel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/challans/:id/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["challans", ":id", "cancel"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Cancel a DRAFT challan. Does not affect stock levels. Requires ADMIN or SALES role."
+          }
+        }
+      ],
+      "description": "Sales Challan operations."
     }
   ]
 }
