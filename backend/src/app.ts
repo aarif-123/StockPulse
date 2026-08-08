@@ -5,6 +5,7 @@ import { errorHandler } from './middleware/error-handler';
 import { notFound } from './middleware/not-found';
 import { env } from './config/env';
 import authRouter from './modules/auth/auth.routes';
+import customersRouter from './modules/customers/customer.routes';
 
 const app = express();
 
@@ -29,10 +30,10 @@ app.get('/api/health', (_req: Request, res: Response) => {
 
 // ── API Routes ────────────────────────────────────────────────────────────────
 
-app.use('/api/auth', authRouter);
+app.use('/api/auth',      authRouter);
+app.use('/api/customers', customersRouter);
 
-// Phase 3+: uncomment as modules are implemented
-// app.use('/api/customers', customersRouter);
+// Phase 4+: uncomment as modules are implemented
 // app.use('/api/products', productsRouter);
 // app.use('/api/challans', challansRouter);
 

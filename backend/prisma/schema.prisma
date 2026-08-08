@@ -67,7 +67,9 @@ model User {
 model Customer {
   id           String         @id @default(cuid())
   name         String
+  mobile       String?
   email        String?        @unique
+  businessName String?
   phone        String?
   address      String?
   city         String?
@@ -76,6 +78,7 @@ model Customer {
   gstin        String?        @unique
   type         CustomerType   @default(RETAIL)
   status       CustomerStatus @default(LEAD)
+  followUpDate DateTime?
   notes        String?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
@@ -85,6 +88,7 @@ model Customer {
 
   @@index([status])
   @@index([type])
+  @@index([mobile])
   @@map("customers")
 }
 
