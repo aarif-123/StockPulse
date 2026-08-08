@@ -29,13 +29,24 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/api/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
 });
+app.get('/health', (_req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok' });
+});
 
 // ── API Routes ────────────────────────────────────────────────────────────────
 
+// Support both prefixed (/api) and non-prefixed paths for routing flexibility
 app.use('/api/auth',      authRouter);
+app.use('/auth',          authRouter);
+
 app.use('/api/customers', customersRouter);
+app.use('/customers',     customersRouter);
+
 app.use('/api/products',  productsRouter);
+app.use('/products',      productsRouter);
+
 app.use('/api/challans',  challansRouter);
+app.use('/challans',      challansRouter);
 
 // ── Error handling (must be last) ─────────────────────────────────────────────
 
