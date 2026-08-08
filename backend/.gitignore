@@ -1,0 +1,19 @@
+# Environment — NEVER commit
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Prisma generated client
+src/generated/
+
+# Logs
+*.log

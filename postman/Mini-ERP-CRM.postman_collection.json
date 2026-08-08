@@ -1,0 +1,75 @@
+{
+  "info": {
+    "_postman_id": "mini-erp-crm-v1",
+    "name": "Mini ERP + CRM",
+    "description": "API collection for the Mini ERP + CRM Operations Portal.\n\nSet the `baseUrl` variable to match your environment:\n- Local:      http://localhost:5000/api\n- Production: https://your-render-app.onrender.com/api",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string",
+      "description": "JWT bearer token — populated after login (Phase 2)"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Verify the API server is running. Expected response: { \"status\": \"ok\" }"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"ok\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth (Phase 2)",
+      "item": [],
+      "description": "Authentication endpoints will be added in Phase 2."
+    },
+    {
+      "name": "Customers (Phase 2)",
+      "item": [],
+      "description": "Customer CRUD endpoints will be added in Phase 2."
+    },
+    {
+      "name": "Products (Phase 2)",
+      "item": [],
+      "description": "Product and inventory endpoints will be added in Phase 2."
+    },
+    {
+      "name": "Challans (Phase 2)",
+      "item": [],
+      "description": "Delivery challan endpoints will be added in Phase 2."
+    }
+  ]
+}
