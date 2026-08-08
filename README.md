@@ -13,7 +13,7 @@ A full-stack Operations Portal for managing customers, products, inventory, and 
 | Validation | Zod                                             |
 | ORM        | Prisma                                          |
 | Database   | Supabase PostgreSQL                             |
-| Auth       | JWT + bcrypt *(Phase 2)*                        |
+| Auth       | JWT (`jsonwebtoken`) + bcrypt                   |
 
 ---
 
@@ -247,10 +247,142 @@ Set the `baseUrl` collection variable to `http://localhost:5000/api` for local d
 
 ---
 
+## Authentication (Phase 2)
+
+### Architecture
+
+Application-level JWT authentication — **no Supabase Auth**. Supabase is used only as the PostgreSQL provider.
+
+```
+POST /api/auth/login
+        │
+        ▼
+Zod validates body
+        │
+        ▼
+Prisma finds user by email
+        │
+        ▼
+bcrypt compares password hash
+        │
+        ▼
+jsonwebtoken signs JWT (userId + role)
+        │
+        ▼
+Returns { token, user }  ← passwordHash never included
+```
+
+Protected routes use the `authenticate` middleware which verifies the JWT **without a database call** (stateless). The `authorize` middleware then checks the role.
+
+### User Roles
+
+| Role | Description |
+|------|-------------|
+| `ADMIN` | Full access — manages users and system configuration |
+| `SALES` | Access to customers and challans |
+| `WAREHOUSE` | Access to products and inventory |
+| `ACCOUNTS` | Access to financial data and reports |
+
+### Development Seed Credentials
+
+> ⚠️ **DEVELOPMENT ONLY** — These credentials are for local development and testing. Never use them in production.
+
+| Role | Email | Password |
+|------|-------|----------|
+| ADMIN | `admin@example.com` | `Password123!` |
+| SALES | `sales@example.com` | `Password123!` |
+| WAREHOUSE | `warehouse@example.com` | `Password123!` |
+| ACCOUNTS | `accounts@example.com` | `Password123!` |
+
+Seed the database:
+
+```bash
+cd backend
+npx prisma db seed
+```
+
+The seed is idempotent — safe to run multiple times.
+
+### Auth Endpoints
+
+#### POST /api/auth/login
+
+```bash
+curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@example.com", "password": "Password123!"}'
+```
+
+Success (`200`):
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "cmsk48qjd0000dsy3rlp5qyqc",
+    "name": "Admin User",
+    "email": "admin@example.com",
+    "role": "ADMIN"
+  }
+}
+```
+
+Invalid credentials (`401`):
+```json
+{ "status": "error", "message": "Invalid email or password." }
+```
+
+#### GET /api/auth/me
+
+Returns the authenticated user's profile. Requires a valid Bearer token.
+
+```bash
+curl http://localhost:5000/api/auth/me \
+  -H "Authorization: Bearer <your-token>"
+```
+
+Success (`200`):
+```json
+{
+  "user": {
+    "id": "cmsk48qjd0000dsy3rlp5qyqc",
+    "name": "Admin User",
+    "email": "admin@example.com",
+    "role": "ADMIN"
+  }
+}
+```
+
+### Authorization Header Format
+
+All protected routes require:
+
+```
+Authorization: Bearer <jwt-token>
+```
+
+### 401 vs 403
+
+| Code | Meaning | When |
+|------|---------|------|
+| `401 Unauthorized` | Not authenticated | Token missing, expired, malformed, or invalid |
+| `403 Forbidden` | Authenticated but insufficient role | Valid token but role not in the allowed list |
+
+---
+
+## Postman Collection
+
+Import `postman/Mini-ERP-CRM.postman_collection.json` into Postman.
+
+1. Set the `baseUrl` collection variable to `http://localhost:5000/api`.
+2. Run **POST /auth/login** — the test script automatically saves the token to `{{authToken}}`.
+3. All subsequent requests use `{{authToken}}` automatically.
+
+---
+
 ## Roadmap
 
-- **Phase 1** ✅ — Project foundation (this phase)
-- **Phase 2** — Authentication (JWT + bcrypt)
+- **Phase 1** ✅ — Project foundation
+- **Phase 2** ✅ — Authentication (JWT + bcrypt)
 - **Phase 3** — Customer & Product CRUD
 - **Phase 4** — Inventory management & stock movements
 - **Phase 5** — Challan creation & management

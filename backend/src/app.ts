@@ -4,6 +4,7 @@ import cors from 'cors';
 import { errorHandler } from './middleware/error-handler';
 import { notFound } from './middleware/not-found';
 import { env } from './config/env';
+import authRouter from './modules/auth/auth.routes';
 
 const app = express();
 
@@ -26,8 +27,11 @@ app.get('/api/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
 });
 
-// ── Future module routes will be mounted here ─────────────────────────────────
-// app.use('/api/auth', authRouter);
+// ── API Routes ────────────────────────────────────────────────────────────────
+
+app.use('/api/auth', authRouter);
+
+// Phase 3+: uncomment as modules are implemented
 // app.use('/api/customers', customersRouter);
 // app.use('/api/products', productsRouter);
 // app.use('/api/challans', challansRouter);
