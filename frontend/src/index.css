@@ -416,7 +416,7 @@ button, input, select, textarea {
 
 .search-input-wrapper {
   flex: 1;
-  min-width: 240px;
+  min-width: min(240px, 100%);
   position: relative;
 }
 
@@ -784,46 +784,303 @@ button, input, select, textarea {
   padding: 24px;
 }
 
-/* Mobile responsive media rules */
+/* ============================================================
+   RESPONSIVE BREAKPOINTS
+   ============================================================ */
+
+/* ---------- Tablet & collapsed sidebar (≤ 1024px) ---------- */
 @media (max-width: 1024px) {
   .sidebar {
     transform: translateX(-100%);
+    /* Ensure sidebar sits above page content but below the overlay */
+    z-index: 110;
   }
-  
+
   .sidebar.mobile-open {
     transform: translateX(0);
   }
-  
+
   .main-content {
     margin-left: 0;
   }
-  
+
   .hamburger-btn {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
   }
-  
+
   .page-container {
-    padding: 20px;
+    padding: 24px 20px;
   }
-  
+
   .details-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .challan-wizard {
     grid-template-columns: 1fr;
   }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
 }
 
-@media (max-width: 600px) {
+/* ---------- Small tablet (≤ 768px) ---------- */
+@media (max-width: 768px) {
+  /* Typography scale-down */
+  .page-title {
+    font-size: 22px;
+  }
+
+  .stat-value {
+    font-size: 26px;
+  }
+
+  /* Tighter page spacing */
+  .page-container {
+    padding: 16px;
+  }
+
+  .header-bar {
+    padding: 0 16px;
+  }
+
+  /* Hide verbose profile text on small screens, keep avatar */
+  .profile-info {
+    display: none;
+  }
+
+  /* Toolbar: stack search full-width, filters wrap naturally */
+  .toolbar-card {
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .search-input-wrapper {
+    min-width: 100%;
+    flex: none;
+    width: 100%;
+  }
+
+  .filter-select {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  /* Dashboard stat cards: 2-column grid */
+  .dashboard-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    padding: 18px 16px;
+  }
+
+  /* Page header: wrap action button below title */
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  /* Table: smaller cell padding, keep horizontal scroll */
+  .custom-table th,
+  .custom-table td {
+    padding: 12px 14px;
+  }
+
+  /* Pagination: center controls, stack info above */
+  .pagination-footer {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    text-align: center;
+  }
+
+  /* Cards */
+  .card {
+    padding: 16px;
+  }
+
+  /* Modal: tighter body padding */
+  .modal-body {
+    padding: 16px;
+  }
+
+  .modal-footer {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .modal-footer .btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  /* Challan wizard stacks naturally at ≤ 1024 but refine */
+  .challan-item-list {
+    padding: 16px;
+  }
+}
+
+/* ---------- Mobile phone (≤ 480px) ---------- */
+@media (max-width: 480px) {
+  :root {
+    --header-height: 60px;
+  }
+
+  .page-title {
+    font-size: 20px;
+  }
+
+  .page-container {
+    padding: 12px;
+  }
+
+  /* Full-width buttons in page header */
+  .page-header .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Stat cards: single column on very small phones */
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .stat-card {
+    padding: 16px 14px;
+  }
+
+  .stat-value {
+    font-size: 24px;
+  }
+
+  /* Toolbar: everything stacks full-width */
+  .toolbar-card {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .filter-select {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .toolbar-card .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Tables: reduce padding further, rely on horizontal scroll */
+  .custom-table th {
+    padding: 10px 12px;
+    font-size: 11px;
+  }
+
+  .custom-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  /* Login card: reduce padding on tiny screens */
+  .login-card {
+    padding: 24px 20px;
+  }
+
+  /* Modal: use nearly full viewport height on phones */
+  .modal-overlay {
+    padding: 8px;
+    align-items: flex-end;
+  }
+
+  .modal-dialog {
+    max-height: 95vh;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .modal-header {
+    padding: 16px;
+  }
+
+  .modal-body {
+    padding: 14px;
+  }
+
+  /* Form rows stack to single column on phones */
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  /* Challan item row: card-style stacking */
   .challan-item-row {
     grid-template-columns: 1fr;
     gap: 8px;
     background-color: var(--bg-tertiary);
-    padding: 16px;
+    padding: 14px;
     border-radius: 8px;
+    border: 1px solid var(--border-color);
   }
+
   .challan-item-row > button {
     align-self: flex-end;
+  }
+
+  /* Pagination controls: larger tap targets */
+  .pagination-controls .btn {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  /* Badge font slightly larger for readability */
+  .badge {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+
+  /* Empty state: less padding */
+  .empty-state {
+    padding: 32px 16px;
+  }
+}
+
+/* ---------- Very small phones (≤ 360px) ---------- */
+@media (max-width: 360px) {
+  .page-title {
+    font-size: 18px;
+  }
+
+  .logo-text {
+    font-size: 16px;
+  }
+
+  .profile-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .header-bar {
+    padding: 0 12px;
+  }
+
+  .page-container {
+    padding: 10px;
   }
 }
