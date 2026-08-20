@@ -1,105 +1,61 @@
-// Sales Challan controller — request/response adapter.
-
-import { NextFunction, Request, Response } from 'express';
-import { ZodError } from 'zod';
-import { createChallanSchema, listQuerySchema } from './challan.schema';
+import { Request, Response, NextFunction } from 'express';
+import * as challanService from './challan.service';
 import {
-  createChallan,
-  listChallans,
-  getChallanById,
-  confirmChallan,
-  cancelChallan,
-} from './challan.service';
-import { AppError } from '../../middleware/error-handler';
+  CreateChallanSchema,
+  ListQuerySchema,
+  ChallanIdParamSchema,
+} from './challan.schema';
 
-// ── Shared helper ─────────────────────────────────────────────────────────────
-
-/** Converts a ZodError into a clean 400 AppError for the centralized handler. */
-function zodToBadRequest(err: ZodError): AppError {
-  const message = err.errors[0]?.message ?? 'Invalid request data.';
-  const appErr: AppError = new Error(message);
-  appErr.statusCode = 400;
-  appErr.isOperational = true;
-  return appErr;
-}
-
-// ── Handlers ──────────────────────────────────────────────────────────────────
-
-/** POST /api/challans */
-export async function create(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
+export async function createChallan(req: Request, res: Response, next: NextFunction) {
   try {
-    const body = createChallanSchema.parse(req.body);
-    const userId = req.user!.userId;
-    const challan = await createChallan(userId, body);
-    res.status(201).json({ data: challan });
+    const orgId = req.tenant!.organizationId;
+    const validated = CreateChallanSchema.parse(req.body);
+    const result = await challanService.createChallan(orgId, req.user!.userId, validated);
+    res.status(201).json({ data: result });
   } catch (err) {
-    next(err instanceof ZodError ? zodToBadRequest(err) : err);
+    next(err);
   }
 }
 
-/** GET /api/challans */
-export async function list(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
+export async function listChallans(req: Request, res: Response, next: NextFunction) {
   try {
-    const query = listQuerySchema.parse(req.query);
-    const result = await listChallans(query);
+    const orgId = req.tenant!.organizationId;
+    const validated = ListQuerySchema.parse(req.query);
+    const result = await challanService.listChallans(orgId, validated);
     res.status(200).json(result);
   } catch (err) {
-    next(err instanceof ZodError ? zodToBadRequest(err) : err);
+    next(err);
   }
 }
 
-/** GET /api/challans/:id */
-export async function getOne(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
+export async function getChallanById(req: Request, res: Response, next: NextFunction) {
   try {
-    const challan = await getChallanById(req.params['id'] as string);
-    res.status(200).json({ data: challan });
+    const orgId = req.tenant!.organizationId;
+    const { id } = ChallanIdParamSchema.parse(req.params);
+    const result = await challanService.getChallanById(orgId, id);
+    res.status(200).json({ data: result });
   } catch (err) {
     next(err);
   }
 }
 
-/** POST /api/challans/:id/confirm */
-export async function confirm(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
+export async function confirmChallan(req: Request, res: Response, next: NextFunction) {
   try {
-    const userId = req.user!.userId;
-    const challan = await confirmChallan(req.params['id'] as string, userId);
-    res.status(200).json({
-      message: 'Challan confirmed successfully.',
-      data: challan,
-    });
+    const orgId = req.tenant!.organizationId;
+    const { id } = ChallanIdParamSchema.parse(req.params);
+    const result = await challanService.confirmChallan(orgId, id, req.user!.userId);
+    res.status(200).json({ data: result });
   } catch (err) {
     next(err);
   }
 }
 
-/** POST /api/challans/:id/cancel */
-export async function cancel(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
+export async function cancelChallan(req: Request, res: Response, next: NextFunction) {
   try {
-    const challan = await cancelChallan(req.params['id'] as string);
-    res.status(200).json({
-      message: 'Challan cancelled successfully.',
-      data: challan,
-    });
+    const orgId = req.tenant!.organizationId;
+    const { id } = ChallanIdParamSchema.parse(req.params);
+    const result = await challanService.cancelChallan(orgId, id);
+    res.status(200).json({ data: result });
   } catch (err) {
     next(err);
   }

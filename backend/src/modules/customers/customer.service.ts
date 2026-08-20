@@ -1,14 +1,7 @@
-// Customer service — all business logic lives here.
-//
-// Rules:
-//   - No Express types (Request / Response) in this file.
-//   - Every function has a single clear responsibility.
-//   - Prisma queries are written directly — no abstraction layer.
-//   - Errors are AppErrors so the centralized handler formats them.
-
 import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { AppError } from '../../middleware/error-handler';
+import { entitlementService } from '../subscriptions/entitlement.service';
 import type {
   CreateCustomerInput,
   UpdateCustomerInput,
@@ -16,20 +9,16 @@ import type {
   FollowUpInput,
 } from './customer.schema';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Maps API input field names to Prisma field names. */
 function toDbFields(input: CreateCustomerInput | UpdateCustomerInput) {
   const { customerType, gstNumber, ...rest } = input as CreateCustomerInput & { customerType?: string; gstNumber?: string };
   return {
     ...rest,
-    ...(customerType !== undefined && { type: customerType }),
+    ...(customerType !== undefined && { type: customerType as any }),
     ...(gstNumber    !== undefined && { gstin: gstNumber }),
   };
 }
 
-/** Maps a Prisma Customer row to the API response shape. */
-function toResponse(customer: Awaited<ReturnType<typeof prisma.customer.findUniqueOrThrow>>) {
+function toResponse(customer: any) {
   const { type, gstin, ...rest } = customer;
   return {
     ...rest,
@@ -38,15 +27,10 @@ function toResponse(customer: Awaited<ReturnType<typeof prisma.customer.findUniq
   };
 }
 
-/** Throws a clean 404 operational error. */
 function notFound(id: string): AppError {
-  const err: AppError = new Error(`Customer with id "${id}" not found.`);
-  err.statusCode = 404;
-  err.isOperational = true;
-  return err;
+  return AppError.notFound('Customer', id);
 }
 
-/** Maps Prisma unique-constraint violations to clean 400 errors. */
 function handleUniqueConstraint(err: unknown): never {
   if (
     err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -54,48 +38,39 @@ function handleUniqueConstraint(err: unknown): never {
   ) {
     const field = (err.meta?.['target'] as string[] | undefined)?.[0] ?? 'field';
     const friendly = field === 'gstin' ? 'GST number' : field;
-    const appErr: AppError = new Error(`A customer with this ${friendly} already exists.`);
-    appErr.statusCode = 400;
-    appErr.isOperational = true;
-    throw appErr;
+    throw AppError.badRequest(`A customer with this ${friendly} already exists in your organization.`);
   }
   throw err;
 }
 
-// ── Service functions ─────────────────────────────────────────────────────────
-
-/**
- * Creates a new customer.
- * Handles duplicate email / GST number with a clean 400 error.
- */
-export async function createCustomer(input: CreateCustomerInput) {
+export async function createCustomer(organizationId: string, input: CreateCustomerInput) {
   try {
-    const customer = await prisma.customer.create({
-      data: toDbFields(input),
+    return await prisma.$transaction(async (tx) => {
+      // Transaction-safe quota assertion
+      await entitlementService.assertQuotaAvailable(tx, organizationId, 'customers');
+
+      const customer = await tx.customer.create({
+        data: {
+          ...toDbFields(input),
+          organizationId,
+        },
+      });
+
+      return toResponse(customer);
     });
-    return toResponse(customer);
   } catch (err) {
     handleUniqueConstraint(err);
   }
 }
 
-/**
- * Returns a paginated, filtered, searchable list of customers.
- *
- * Search is case-insensitive across: name, mobile, email, businessName.
- * Filters: status, customerType.
- * Both are combined with AND so all conditions must match.
- *
- * Uses a Prisma $transaction to get data + total count in one round-trip.
- */
-export async function listCustomers(query: ListQueryInput) {
+export async function listCustomers(organizationId: string, query: ListQueryInput) {
   const { page, limit, search, status, customerType } = query;
   const skip = (page - 1) * limit;
 
-  // Build the WHERE clause incrementally — only add conditions that are present
   const where: Prisma.CustomerWhereInput = {
-    ...(status       && { status }),
-    ...(customerType && { type: customerType }),
+    organizationId,
+    ...(status       && { status: status as any }),
+    ...(customerType && { type: customerType as any }),
     ...(search && {
       OR: [
         { name:         { contains: search, mode: 'insensitive' } },
@@ -106,7 +81,7 @@ export async function listCustomers(query: ListQueryInput) {
     }),
   };
 
-  const [customers, total] = await prisma.$transaction([
+  const [customers, total] = await Promise.all([
     prisma.customer.findMany({
       where,
       skip,
@@ -127,24 +102,19 @@ export async function listCustomers(query: ListQueryInput) {
   };
 }
 
-/**
- * Returns a single customer by ID.
- * Throws 404 if not found.
- */
-export async function getCustomerById(id: string) {
-  const customer = await prisma.customer.findUnique({ where: { id } });
+export async function getCustomerById(organizationId: string, id: string) {
+  const customer = await prisma.customer.findFirst({
+    where: { id, organizationId },
+  });
   if (!customer) throw notFound(id);
   return toResponse(customer);
 }
 
-/**
- * Updates a customer's fields.
- * Only provided fields are changed (partial update).
- * Throws 404 if not found.
- */
-export async function updateCustomer(id: string, input: UpdateCustomerInput) {
-  // Check existence first to return a clean 404 rather than letting Prisma throw
-  const exists = await prisma.customer.findUnique({ where: { id }, select: { id: true } });
+export async function updateCustomer(organizationId: string, id: string, input: UpdateCustomerInput) {
+  const exists = await prisma.customer.findFirst({
+    where: { id, organizationId },
+    select: { id: true },
+  });
   if (!exists) throw notFound(id);
 
   try {
@@ -158,12 +128,11 @@ export async function updateCustomer(id: string, input: UpdateCustomerInput) {
   }
 }
 
-/**
- * Updates a customer's follow-up date and notes.
- * Throws 404 if the customer doesn't exist.
- */
-export async function addFollowUp(id: string, input: FollowUpInput) {
-  const exists = await prisma.customer.findUnique({ where: { id }, select: { id: true } });
+export async function addFollowUp(organizationId: string, id: string, input: FollowUpInput) {
+  const exists = await prisma.customer.findFirst({
+    where: { id, organizationId },
+    select: { id: true },
+  });
   if (!exists) throw notFound(id);
 
   const customer = await prisma.customer.update({

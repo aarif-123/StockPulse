@@ -1,5 +1,5 @@
-// Prisma schema for Mini ERP + CRM Operations Portal
-// Database provider: Supabase PostgreSQL
+// Prisma schema for StockPulse Multi-Tenant B2B SaaS Platform
+// Database provider: PostgreSQL (Supabase)
 // ORM: Prisma 5.x
 
 generator client {
@@ -7,17 +7,72 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
 }
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
-enum Role {
-  ADMIN
+enum PlatformRole {
+  SUPER_ADMIN
+  SUPPORT
+}
+
+enum OrgRole {
+  ORG_ADMIN
   SALES
   WAREHOUSE
   ACCOUNTS
+  CUSTOM
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+  CANCELLED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  EXPIRED
+  CANCELLED
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum PaymentMethod {
+  UPI_MANUAL
+  RAZORPAY
+  BANK_TRANSFER
+  CASH
+  CHEQUE
+  CREDIT
+}
+
+enum PaymentRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum CustomerType {
@@ -43,135 +98,537 @@ enum ChallanStatus {
   CANCELLED
 }
 
-// ── Models ────────────────────────────────────────────────────────────────────
+enum WhatsAppTxStatus {
+  DRAFT
+  CONFIRMED
+  FAILED
+  CANCELLED
+}
 
-/// Application user. Stores credentials for JWT authentication (Phase 2).
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+enum LedgerTxType {
+  SALE
+  PAYMENT
+  CREDIT_NOTE
+  DEBIT_NOTE
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum VelocityTrend {
+  INCREASING
+  DECREASING
+  STABLE
+}
+
+enum AuditScope {
+  PLATFORM
+  ORGANIZATION
+  BUSINESS
+}
+
+enum SupportSessionStatus {
+  ACTIVE
+  TERMINATED
+  EXPIRED
+}
+
+// ── Identity & Access Control ──────────────────────────────────────────────────
+
+/// Global platform user. Can belong to multiple organizations via OrganizationMembership.
 model User {
-  id           String   @id @default(cuid())
+  id           String      @id @default(cuid())
   name         String
-  email        String   @unique
+  email        String      @unique
   passwordHash String
-  role         Role     @default(SALES)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isSuperAdmin Boolean     @default(false)
+  status       UserStatus  @default(ACTIVE)
+  lastLoginAt  DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
-  // Relations
-  stockMovements StockMovement[]
-  challans       Challan[]
+  // Tenant Memberships
+  memberships          OrganizationMembership[]
+
+  // Business Transactions Created
+  stockMovements       StockMovement[]
+  challans             Challan[]
+  transactions         Transaction[]
+
+  // Support / Impersonation sessions (as SuperAdmin or target)
+  initiatedSupportSessions SupportSession[] @relation("SuperAdminSessions")
+  targetedSupportSessions  SupportSession[] @relation("TargetUserSessions")
+
+  // Audit Logs initiated by this user
+  auditLogs            AuditLog[]
+  paymentRequestsReviewed PaymentRequest[] @relation("ReviewedPayments")
+  paymentRequestsSubmitted PaymentRequest[] @relation("SubmittedPayments")
 
   @@index([email])
+  @@index([status])
+  @@index([isSuperAdmin])
   @@map("users")
 }
 
-/// Customer/prospect entity for the CRM module.
-model Customer {
-  id           String         @id @default(cuid())
-  name         String
-  mobile       String?
-  email        String?        @unique
-  businessName String?
-  phone        String?
-  address      String?
-  city         String?
-  state        String?
-  pincode      String?
-  gstin        String?        @unique
-  type         CustomerType   @default(RETAIL)
-  status       CustomerStatus @default(LEAD)
-  followUpDate DateTime?
-  notes        String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+/// Commercial tenant / customer organization.
+model Organization {
+  id              String      @id @default(cuid())
+  name            String
+  slug            String      @unique
+  status          OrgStatus   @default(ACTIVE)
+  currency        String      @default("INR")
+  businessGstin   String?
+  businessPhone   String?
+  businessEmail   String?
+  businessAddress String?
+  city            String?
+  state           String?
+  pincode         String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   // Relations
-  challans Challan[]
+  memberships     OrganizationMembership[]
+  subscriptions   Subscription[]
+  paymentRequests PaymentRequest[]
+  customers       Customer[]
+  products        Product[]
+  stockMovements  StockMovement[]
+  challans        Challan[]
+  transactions    Transaction[]
+  customerLedgers CustomerLedger[]
+  auditLogs       AuditLog[]
+  supportSessions SupportSession[]
 
+  @@index([slug])
   @@index([status])
-  @@index([type])
+  @@map("organizations")
+}
+
+/// User membership in an organization with role assignment.
+model OrganizationMembership {
+  id             String           @id @default(cuid())
+  userId         String
+  organizationId String
+  role           OrgRole          @default(SALES)
+  status         MembershipStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  // Relations
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([role])
+  @@map("organization_memberships")
+}
+
+// ── Plans, Subscriptions & Entitlements ──────────────────────────────────────
+
+/// Data-driven commercial plan tier.
+model Plan {
+  id              String         @id @default(cuid())
+  name            String
+  code            String         @unique // e.g. "starter_v1", "growth_v1"
+  description     String?
+  monthlyPriceINR Decimal        @db.Decimal(10, 2)
+  yearlyPriceINR  Decimal        @db.Decimal(10, 2)
+  maxUsers        Int            @default(2)
+  maxProducts     Int            @default(500)
+  maxCustomers    Int            @default(200)
+  maxWarehouses   Int            @default(2)
+  maxTransactions Int            @default(1000)
+  allowedFeatures String[]       @default(["CORE_ERP", "CRM", "CHALLANS", "BASIC_REPORTS"])
+  isActive        Boolean        @default(true)
+  version         Int            @default(1)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relations
+  subscriptions   Subscription[]
+  paymentRequests PaymentRequest[]
+
+  @@index([code])
+  @@index([isActive])
+  @@map("plans")
+}
+
+/// Active organization commercial subscription.
+model Subscription {
+  id                 String             @id @default(cuid())
+  organizationId     String
+  planId             String
+  status             SubscriptionStatus @default(TRIAL)
+  billingCycle       BillingCycle       @default(MONTHLY)
+  currentPeriodStart DateTime           @default(now())
+  currentPeriodEnd   DateTime
+  trialEndsAt        DateTime?
+  cancelledAt        DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  // Relations
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan               Plan               @relation(fields: [planId], references: [id])
+
+  @@index([organizationId, status])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+/// Payment verification request for Manual UPI QR or Gateway records.
+model PaymentRequest {
+  id              String               @id @default(cuid())
+  organizationId  String
+  planId          String
+  amountINR       Decimal              @db.Decimal(10, 2)
+  billingCycle    BillingCycle         @default(MONTHLY)
+  paymentMethod   PaymentMethod        @default(UPI_MANUAL)
+  referenceNumber String // UTR or Gateway Order ID
+  proofUrl        String?
+  status          PaymentRequestStatus @default(PENDING)
+  notes           String?
+  rejectionReason String?
+  submittedBy     String
+  reviewedBy      String?
+  submittedAt     DateTime             @default(now())
+  reviewedAt      DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  // Relations
+  organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan            Plan                 @relation(fields: [planId], references: [id])
+  submitter       User                 @relation("SubmittedPayments", fields: [submittedBy], references: [id])
+  reviewer        User?                @relation("ReviewedPayments", fields: [reviewedBy], references: [id])
+
+  @@index([organizationId, status])
+  @@index([status])
+  @@index([referenceNumber])
+  @@map("payment_requests")
+}
+
+// ── Multi-Tenant Business Models ──────────────────────────────────────────────
+
+/// Customer/prospect entity for CRM module, scoped to organization.
+model Customer {
+  id             String           @id @default(cuid())
+  organizationId String
+  name           String
+  mobile         String?
+  email          String?
+  businessName   String?
+  phone          String?
+  address        String?
+  city           String?
+  state          String?
+  pincode        String?
+  gstin          String?
+  type           CustomerType     @default(RETAIL)
+  status         CustomerStatus   @default(LEAD)
+  followUpDate   DateTime?
+  notes          String?
+  creditLimit    Decimal          @default(50000.00) @db.Decimal(12, 2)
+  outstanding    Decimal          @default(0.00) @db.Decimal(12, 2)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  // Relations
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  challans       Challan[]
+  transactions   Transaction[]
+  ledger         CustomerLedger[]
+  metrics        CustomerMetrics?
+
+  @@unique([organizationId, email])
+  @@unique([organizationId, gstin])
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
   @@index([mobile])
   @@map("customers")
 }
 
-/// Inventory product / SKU.
+/// Inventory product / SKU, scoped to organization.
 model Product {
-  id                String   @id @default(cuid())
+  id                String            @id @default(cuid())
+  organizationId    String
   name              String
-  sku               String   @unique
+  sku               String
   category          String
-  unitPrice         Decimal  @db.Decimal(12, 2)
-  currentStock      Int      @default(0)
-  minimumStock      Int      @default(0)
+  unitPrice         Decimal           @db.Decimal(12, 2)
+  costPrice         Decimal           @default(0.00) @db.Decimal(12, 2)
+  hsnCode           String?           @default("8481")
+  gstRate           Decimal           @default(0.18) @db.Decimal(4, 2)
+  currentStock      Int               @default(0)
+  minimumStock      Int               @default(0)
+  reorderPoint      Int               @default(50)
   warehouseLocation String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
   // Relations
-  stockMovements StockMovement[]
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stockMovements    StockMovement[]
+  transactionItems  TransactionItem[]
+  metrics           ProductMetrics?
 
-  @@index([sku])
-  @@index([category])
+  @@unique([organizationId, sku])
+  @@index([organizationId, category])
+  @@index([organizationId, currentStock])
   @@map("products")
 }
 
-/// Audit log of every stock change (inbound or outbound).
+/// Audit log of every stock change, scoped to organization.
 model StockMovement {
-  id        String            @id @default(cuid())
-  productId String
-  quantity  Int
-  type      StockMovementType
-  reason    String?
-  createdAt DateTime          @default(now())
+  id             String            @id @default(cuid())
+  organizationId String
+  productId      String
+  quantity       Int
+  type           StockMovementType
+  reason         String?
+  createdBy      String
+  createdAt      DateTime          @default(now())
 
   // Relations
-  product   Product @relation(fields: [productId], references: [id])
-  createdBy String
-  user      User    @relation(fields: [createdBy], references: [id])
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product        Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user           User              @relation(fields: [createdBy], references: [id])
 
+  @@index([organizationId, createdAt])
   @@index([productId])
   @@index([createdBy])
-  @@index([type])
   @@map("stock_movements")
 }
 
-/// Delivery challan header.
+/// Delivery challan header, scoped to organization.
 model Challan {
-  id            String        @id @default(cuid())
-  challanNumber String        @unique
-  customerId    String
-  status        ChallanStatus @default(DRAFT)
-  totalQuantity Int           @default(0)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  organizationId String
+  challanNumber  String
+  customerId     String
+  status         ChallanStatus @default(DRAFT)
+  totalQuantity  Int           @default(0)
+  createdBy      String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   // Relations
-  customer  Customer     @relation(fields: [customerId], references: [id])
-  createdBy String
-  user      User         @relation(fields: [createdBy], references: [id])
-  items     ChallanItem[]
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer       Customer      @relation(fields: [customerId], references: [id])
+  user           User          @relation(fields: [createdBy], references: [id])
+  items          ChallanItem[]
 
+  @@unique([organizationId, challanNumber])
+  @@index([organizationId, status])
   @@index([customerId])
-  @@index([createdBy])
-  @@index([status])
   @@map("challans")
 }
 
 /// Line items on a challan.
-/// productName, sku, and unitPrice are snapshot fields — they record the
-/// values at the time of challan creation so historical records remain
-/// accurate even if the product is later updated or deleted.
 model ChallanItem {
   id          String  @id @default(cuid())
   challanId   String
   productId   String
-  productName String  // snapshot
-  sku         String  // snapshot
-  unitPrice   Decimal @db.Decimal(12, 2) // snapshot
+  productName String
+  sku         String
+  unitPrice   Decimal @db.Decimal(12, 2)
   quantity    Int
 
   // Relations
-  challan Challan @relation(fields: [challanId], references: [id], onDelete: Cascade)
+  challan     Challan @relation(fields: [challanId], references: [id], onDelete: Cascade)
 
   @@index([challanId])
   @@index([productId])
   @@map("challan_items")
+}
+
+/// Core atomic sales/payment transaction created via WhatsApp conversational engine.
+model Transaction {
+  id                  String           @id @default(cuid())
+  organizationId      String
+  customerId          String
+  invoiceNumber       String
+  parsedInput         String?
+  confidenceScore     Float            @default(1.0)
+  subtotal            Decimal          @db.Decimal(12, 2)
+  gstAmount           Decimal          @db.Decimal(12, 2)
+  cgstAmount          Decimal          @default(0.00) @db.Decimal(12, 2)
+  sgstAmount          Decimal          @default(0.00) @db.Decimal(12, 2)
+  igstAmount          Decimal          @default(0.00) @db.Decimal(12, 2)
+  totalAmount         Decimal          @db.Decimal(12, 2)
+  status              WhatsAppTxStatus @default(DRAFT)
+  paymentMethod       PaymentMethod    @default(UPI_MANUAL)
+  paymentStatus       PaymentStatus    @default(CONFIRMED)
+  whatsappMessageId   String?
+  createdByWhatsappId String?
+  createdBy           String
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  // Relations
+  organization        Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer            Customer         @relation(fields: [customerId], references: [id])
+  user                User             @relation(fields: [createdBy], references: [id])
+  items               TransactionItem[]
+  ledgerEntries       CustomerLedger[]
+
+  @@unique([organizationId, invoiceNumber])
+  @@index([organizationId, createdAt])
+  @@index([customerId])
+  @@map("transactions")
+}
+
+/// Line items snapshot on an Invoice Transaction.
+model TransactionItem {
+  id            String      @id @default(cuid())
+  transactionId String
+  productId     String
+  productName   String
+  sku           String
+  hsnCode       String?     @default("8481")
+  quantity      Int
+  unitRate      Decimal     @db.Decimal(12, 2)
+  gstRate       Decimal     @default(0.18) @db.Decimal(4, 2)
+  lineTotal     Decimal     @db.Decimal(12, 2)
+  createdAt     DateTime    @default(now())
+
+  // Relations
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  product       Product     @relation(fields: [productId], references: [id])
+
+  @@index([transactionId])
+  @@index([productId])
+  @@map("transaction_items")
+}
+
+/// Customer running financial ledger.
+model CustomerLedger {
+  id              String        @id @default(cuid())
+  organizationId  String
+  customerId      String
+  transactionId   String?
+  transactionType LedgerTxType
+  amount          Decimal       @db.Decimal(12, 2)
+  balanceAfter    Decimal       @db.Decimal(12, 2)
+  description     String?
+  createdAt       DateTime      @default(now())
+
+  // Relations
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  transaction     Transaction?  @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, customerId])
+  @@index([customerId, createdAt])
+  @@map("customer_ledger")
+}
+
+/// Customer Profile 360 & Intelligence memory.
+model CustomerMetrics {
+  id               String    @id @default(cuid())
+  customerId       String    @unique
+  totalPurchases   Int       @default(0)
+  lifetimeValue    Decimal   @default(0.00) @db.Decimal(14, 2)
+  avgOrderValue    Decimal   @default(0.00) @db.Decimal(12, 2)
+  lastPurchaseDate DateTime?
+  totalOutstanding Decimal   @default(0.00) @db.Decimal(12, 2)
+  creditLimit      Decimal   @default(50000.00) @db.Decimal(12, 2)
+  onTimeCount      Int       @default(0)
+  lateCount        Int       @default(0)
+  avgLateDays      Float     @default(0.0)
+  riskScore        Float     @default(0.0)
+  churnRisk        RiskLevel @default(LOW)
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  customer         Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_metrics")
+}
+
+/// Product Velocity & stockout forecasting memory.
+model ProductMetrics {
+  id                 String        @id @default(cuid())
+  productId          String        @unique
+  sales30Days        Int           @default(0)
+  avgDailySales      Float         @default(0.0)
+  sales90Days        Int           @default(0)
+  trend              VelocityTrend @default(STABLE)
+  daysToStockout     Int?
+  reorderRecommended Boolean       @default(false)
+  suggestedOrderQty  Int?
+  avgMarginPct       Float         @default(20.0)
+  marginTrend        VelocityTrend @default(STABLE)
+  updatedAt          DateTime      @updatedAt
+
+  // Relations
+  product            Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_metrics")
+}
+
+// ── Platform Governance, Audit & Support Impersonation ─────────────────────────
+
+/// Multi-scope unified audit log.
+model AuditLog {
+  id             String       @id @default(cuid())
+  scope          AuditScope   @default(BUSINESS)
+  organizationId String?
+  actorUserId    String
+  action         String
+  resource       String
+  resourceId     String?
+  metadata       String?      // JSON stringified payload
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime     @default(now())
+
+  // Relations
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor          User          @relation(fields: [actorUserId], references: [id])
+
+  @@index([scope, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([actorUserId])
+  @@map("audit_logs")
+}
+
+/// Audited and time-bounded Super Admin support/impersonation session.
+model SupportSession {
+  id                   String               @id @default(cuid())
+  superAdminId         String
+  targetOrganizationId String
+  targetUserId         String
+  reason               String
+  status               SupportSessionStatus @default(ACTIVE)
+  tokenHash            String?
+  ipAddress            String?
+  userAgent            String?
+  startedAt            DateTime             @default(now())
+  endedAt              DateTime?
+  expiresAt            DateTime
+  createdAt            DateTime             @default(now())
+
+  // Relations
+  superAdmin           User                 @relation("SuperAdminSessions", fields: [superAdminId], references: [id])
+  targetOrganization   Organization         @relation(fields: [targetOrganizationId], references: [id], onDelete: Cascade)
+  targetUser           User                 @relation("TargetUserSessions", fields: [targetUserId], references: [id])
+
+  @@index([superAdminId])
+  @@index([targetOrganizationId])
+  @@index([targetUserId])
+  @@index([status])
+  @@map("support_sessions")
 }

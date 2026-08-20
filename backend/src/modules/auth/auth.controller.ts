@@ -1,65 +1,47 @@
-// Auth controller — thin request/response layer.
-//
-// Responsibilities:
-//   1. Parse and validate the request body (via Zod).
-//   2. Call the service function.
-//   3. Send the response.
-//   4. Forward errors to the centralized error handler via next().
-//
-// No business logic lives here. No try/catch wrappers around service
-// calls that don't add value — errors thrown by the service are
-// real AppErrors already shaped for the error handler.
+import { Request, Response, NextFunction } from 'express';
+import { authService } from './auth.service';
+import { z } from 'zod';
 
-import { NextFunction, Request, Response } from 'express';
-import { ZodError } from 'zod';
-import { loginSchema } from './auth.schema';
-import { loginUser, getUserById } from './auth.service';
-import { AppError } from '../../middleware/error-handler';
+const LoginSchema = z.object({
+  email: z.string().email('Please provide a valid email address'),
+  password: z.string().min(1, 'Password is required'),
+});
 
-/**
- * POST /api/auth/login
- *
- * Validates the body, delegates to auth service, returns token + user.
- */
-export async function login(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    // Zod validates and strips unknown fields in one step
-    const body = loginSchema.parse(req.body);
-    const result = await loginUser(body.email, body.password);
-    res.status(200).json(result);
-  } catch (err) {
-    if (err instanceof ZodError) {
-      // Surface the first validation issue as a readable 400 message
-      const message = err.errors[0]?.message ?? 'Invalid request body.';
-      const appErr: AppError = new Error(message);
-      appErr.statusCode = 400;
-      appErr.isOperational = true;
-      return next(appErr);
+const RegisterSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Please provide a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  organizationName: z.string().min(2, 'Organization name is required'),
+  organizationSlug: z.string().min(2).regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
+});
+
+export const authController = {
+  async login(req: Request, res: Response, next: NextFunction) {
+    try {
+      const parsed = LoginSchema.parse(req.body);
+      const data = await authService.login(parsed, req.ip, req.headers['user-agent']);
+      res.status(200).json(data);
+    } catch (err) {
+      next(err);
     }
-    next(err);
-  }
-}
+  },
 
-/**
- * GET /api/auth/me
- *
- * Returns fresh user data for the currently authenticated user.
- * req.user is guaranteed to exist because authenticate() runs first.
- */
-export async function me(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    // req.user is set by the authenticate middleware — safe to assert here
-    const user = await getUserById(req.user!.userId);
-    res.status(200).json({ user });
-  } catch (err) {
-    next(err);
-  }
-}
+  async register(req: Request, res: Response, next: NextFunction) {
+    try {
+      const parsed = RegisterSchema.parse(req.body);
+      const data = await authService.register(parsed);
+      res.status(201).json(data);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getMe(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await authService.getMe(req.user!.userId);
+      res.status(200).json(data);
+    } catch (err) {
+      next(err);
+    }
+  },
+};

@@ -10,7 +10,12 @@ export interface CreateChallanInput {
 }
 
 export const challanService = {
-  async getChallans(params?: { page?: number; limit?: number }): Promise<ApiResponse<Challan[]>> {
+  async getChallans(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: 'DRAFT' | 'CONFIRMED' | 'CANCELLED';
+  }): Promise<ApiResponse<Challan[]>> {
     const response = await api.get<ApiResponse<Challan[]>>('/challans', { params });
     return response.data;
   },

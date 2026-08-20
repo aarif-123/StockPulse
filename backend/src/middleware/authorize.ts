@@ -1,41 +1,66 @@
-// authorize middleware
-//
-// Guards a route to specific roles. Must be used AFTER authenticate()
-// because it reads req.user that authenticate() sets.
-//
-// Usage:
-//   router.get('/admin-only', authenticate, authorize('ADMIN'), handler)
-//   router.get('/sales-or-admin', authenticate, authorize('ADMIN', 'SALES'), handler)
-//
-// HTTP semantics:
-//   401 — not authenticated (handled by authenticate)
-//   403 — authenticated but role not permitted (handled here)
-
 import { NextFunction, Request, Response } from 'express';
-import { Role } from '@prisma/client';
+import { OrgRole } from '@prisma/client';
 import { AppError } from './error-handler';
+import { PermissionCode } from '../config/permissions';
 
 /**
- * Returns a middleware that allows only the specified roles through.
- * Assumes authenticate() has already run and populated req.user.
+ * Guards a route based on organization roles.
+ * Must be used after authenticate and resolveTenantContext.
  */
-export function authorize(...allowedRoles: Role[]) {
+export function authorize(...allowedRoles: OrgRole[]) {
   return (req: Request, _res: Response, next: NextFunction): void => {
-    // Guard: authenticate() should always run first.
     if (!req.user) {
-      const err: AppError = new Error('Authentication required.');
-      err.statusCode = 401;
-      err.isOperational = true;
-      return next(err);
+      return next(AppError.unauthorized('Authentication required.'));
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
-      const err: AppError = new Error(
-        'You do not have permission to access this resource.',
+    if (req.user.isSuperAdmin) {
+      return next(); // Super Admins bypass organization role constraints
+    }
+
+    if (!req.tenant) {
+      return next(AppError.forbidden('Organization tenant context required.'));
+    }
+
+    if (!allowedRoles.includes(req.tenant.role)) {
+      return next(
+        AppError.forbidden(
+          `Your role (${req.tenant.role}) does not have permission to perform this action.`
+        )
       );
-      err.statusCode = 403;
-      err.isOperational = true;
-      return next(err);
+    }
+
+    next();
+  };
+}
+
+/**
+ * Guards a route based on granular permission capabilities.
+ * Must be used after authenticate and resolveTenantContext.
+ */
+export function requirePermission(...requiredPermissions: (PermissionCode | string)[]) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      return next(AppError.unauthorized('Authentication required.'));
+    }
+
+    if (req.user.isSuperAdmin) {
+      return next(); // Super Admins bypass organization permission constraints
+    }
+
+    if (!req.tenant) {
+      return next(AppError.forbidden('Organization tenant context required.'));
+    }
+
+    const hasAll = requiredPermissions.every((perm) =>
+      req.tenant!.permissions.includes(perm)
+    );
+
+    if (!hasAll) {
+      return next(
+        AppError.forbidden(
+          'You do not have the required permission capability to access this resource.'
+        )
+      );
     }
 
     next();

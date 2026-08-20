@@ -1,38 +1,32 @@
-// Product and Inventory routes — mounted at /api/products in app.ts.
-//
-// Authorization Matrix:
-//   POST   /                        → ADMIN, WAREHOUSE          (create product)
-//   GET    /                        → all authenticated roles   (list/search products)
-//   GET    /:id                     → all authenticated roles   (get product)
-//   PUT    /:id                     → ADMIN, WAREHOUSE          (update product)
-//   POST   /:id/stock-movements     → ADMIN, WAREHOUSE          (create stock movement)
-//   GET    /:id/stock-movements     → all authenticated roles   (view movement history)
-
 import { Router } from 'express';
 import { authenticate } from '../../middleware/authenticate';
-import { authorize } from '../../middleware/authorize';
+import { resolveTenantContext } from '../../middleware/tenant-context';
+import { requirePermission } from '../../middleware/authorize';
+import { PERMISSIONS } from '../../config/permissions';
 import {
-  create,
-  list,
-  getOne,
-  update,
-  createMovement,
-  listMovements,
+  createProduct,
+  listProducts,
+  getProductById,
+  updateProduct,
+  createStockMovement,
+  listStockMovements,
 } from './product.controller';
 
 const router = Router();
 
-const allRoles  = authorize('ADMIN', 'SALES', 'WAREHOUSE', 'ACCOUNTS');
-const writeRoles = authorize('ADMIN', 'WAREHOUSE');
+router.use(authenticate);
+router.use(resolveTenantContext);
 
-// Products CRUD
-router.post('/',               authenticate, writeRoles, create);
-router.get('/',                authenticate, allRoles,   list);
-router.get('/:id',             authenticate, allRoles,   getOne);
-router.put('/:id',             authenticate, writeRoles, update);
+router.post('/', requirePermission(PERMISSIONS.PRODUCTS_CREATE), createProduct);
+router.get('/', requirePermission(PERMISSIONS.PRODUCTS_READ), listProducts);
+router.get('/:id', requirePermission(PERMISSIONS.PRODUCTS_READ), getProductById);
+router.put('/:id', requirePermission(PERMISSIONS.PRODUCTS_UPDATE), updateProduct);
+router.patch('/:id', requirePermission(PERMISSIONS.PRODUCTS_UPDATE), updateProduct);
 
-// Inventory / Stock Movements
-router.post('/:id/stock-movements', authenticate, writeRoles, createMovement);
-router.get('/:id/stock-movements',  authenticate, allRoles,   listMovements);
+// Stock movements for a product
+router.post('/:id/movements', requirePermission(PERMISSIONS.PRODUCTS_STOCK_ADJUST), createStockMovement);
+router.post('/:id/stock-movements', requirePermission(PERMISSIONS.PRODUCTS_STOCK_ADJUST), createStockMovement);
+router.get('/:id/movements', requirePermission(PERMISSIONS.PRODUCTS_READ), listStockMovements);
+router.get('/:id/stock-movements', requirePermission(PERMISSIONS.PRODUCTS_READ), listStockMovements);
 
 export default router;

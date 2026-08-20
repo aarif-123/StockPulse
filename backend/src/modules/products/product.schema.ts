@@ -1,9 +1,5 @@
-// Zod validation schemas for the Product and Inventory module.
-
 import { z } from 'zod';
 import { StockMovementType } from '@prisma/client';
-
-// ── Product Creation ─────────────────────────────────────────────────────────
 
 export const createProductSchema = z.object({
   name: z
@@ -37,23 +33,14 @@ export const createProductSchema = z.object({
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 
-// ── Product Update ───────────────────────────────────────────────────────────
-
-// PUT /api/products/:id allows updating all fields EXCEPT:
-// - id, currentStock, createdAt, updatedAt.
-// We reuse the create schema fields by omitting currentStock.
 export const updateProductSchema = createProductSchema.omit({ currentStock: true }).partial();
-
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
-
-// ── Product List Query ────────────────────────────────────────────────────────
 
 export const productQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100, 'Limit cannot exceed 100.').default(10),
+  limit: z.coerce.number().int().min(1).max(500, 'Limit cannot exceed 500.').default(10),
   search: z.string().trim().optional(),
   category: z.string().trim().optional(),
-  // Coerce lowStock string "true" / "false" or boolean
   lowStock: z
     .preprocess((val) => {
       if (val === 'true') return true;
@@ -64,8 +51,6 @@ export const productQuerySchema = z.object({
 });
 
 export type ProductQueryInput = z.infer<typeof productQuerySchema>;
-
-// ── Stock Movement ───────────────────────────────────────────────────────────
 
 export const createStockMovementSchema = z.object({
   type: z.nativeEnum(StockMovementType, {
@@ -83,11 +68,19 @@ export const createStockMovementSchema = z.object({
 
 export type CreateStockMovementInput = z.infer<typeof createStockMovementSchema>;
 
-// ── Stock Movement List Query ────────────────────────────────────────────────
-
 export const movementQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100, 'Limit cannot exceed 100.').default(10),
+  limit: z.coerce.number().int().min(1).max(500, 'Limit cannot exceed 500.').default(10),
 });
 
 export type MovementQueryInput = z.infer<typeof movementQuerySchema>;
+
+export const ProductIdParamSchema = z.object({
+  id: z.string().min(1, 'Product ID is required'),
+});
+
+export const CreateProductSchema = createProductSchema;
+export const UpdateProductSchema = updateProductSchema;
+export const ProductQuerySchema = productQuerySchema;
+export const CreateStockMovementSchema = createStockMovementSchema;
+export const MovementQuerySchema = movementQuerySchema;

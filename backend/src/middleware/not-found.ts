@@ -9,8 +9,7 @@ export function notFound(
   _res: Response,
   next: NextFunction,
 ): void {
-  const err: AppError = new Error(`Route not found: ${req.method} ${req.originalUrl}`);
-  err.statusCode = 404;
-  err.isOperational = true;
-  next(err);
+  next(new AppError(404, `Route not found: ${req.method} ${req.originalUrl}`));
 }
+
+

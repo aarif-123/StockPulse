@@ -28,3 +28,12 @@ Thumbs.db
 
 # Prisma generated client (regenerated via prisma generate)
 backend/src/generated/
+
+# Test coverage
+coverage/
+backend/coverage/
+
+# Temporary artifacts
+backend/test-db.ts
+*.pdf
+

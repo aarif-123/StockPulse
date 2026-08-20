@@ -1,96 +1,266 @@
-// Auth service — pure business logic, no Express types.
-//
-// Each function has a single responsibility:
-//   loginUser   → verify credentials, produce a token
-//   getUserById → fetch safe user data for /me
-//
-// Keeping Express out of this layer means the logic is independently
-// testable and easy to reason about.
-
 import bcrypt from 'bcrypt';
 import prisma from '../../config/database';
-import { signToken } from '../../utils/jwt';
 import { AppError } from '../../middleware/error-handler';
+import { signToken } from '../../utils/jwt';
+import { auditService } from '../audit/audit.service';
+import { UserOrganizationMembershipSummary } from '../../types/auth';
 
-/**
- * The subset of User fields that are safe to send to clients.
- * passwordHash must NEVER appear here.
- */
-export interface SafeUser {
-  id: string;
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
+export interface RegisterInput {
   name: string;
   email: string;
-  role: string;
+  password: string;
+  organizationName: string;
+  organizationSlug: string;
 }
 
-/**
- * Validates credentials and returns a JWT + safe user info.
- *
- * Security notes:
- * - We always compare the hash even when the user isn't found (via a dummy
- *   hash) to prevent timing-based user enumeration attacks.
- * - The error message is intentionally generic — it does not reveal whether
- *   the email exists in the system.
- */
-export async function loginUser(
-  email: string,
-  password: string,
-): Promise<{ token: string; user: SafeUser }> {
-  // Always run bcrypt.compare to avoid timing-based user enumeration.
-  // If the user doesn't exist we compare against a dummy hash so the
-  // response time is indistinguishable from a wrong-password case.
-  const DUMMY_HASH =
-    '$2b$12$invalidhashusedtopreventsidetiminattackswithbcrypt..';
+export const authService = {
+  /**
+   * Authenticates user and returns JWT + user's organization memberships.
+   */
+  async login(input: LoginInput, ipAddress?: string, userAgent?: string) {
+    const email = input.email.toLowerCase().trim();
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        memberships: {
+          include: {
+            organization: {
+              include: {
+                subscriptions: {
+                  include: { plan: true },
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
+      },
+    });
 
-  const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      throw AppError.unauthorized('Invalid email or password.');
+    }
 
-  const hashToCompare = user?.passwordHash ?? DUMMY_HASH;
-  const passwordMatch = await bcrypt.compare(password, hashToCompare);
+    if (user.status !== 'ACTIVE') {
+      throw AppError.forbidden('Your user account is suspended or pending approval.');
+    }
 
-  if (!user || !passwordMatch) {
-    // Generic message: does not reveal whether the email exists
-    const err: AppError = new Error('Invalid email or password.');
-    err.statusCode = 401;
-    err.isOperational = true;
-    throw err;
-  }
+    const passwordMatch = await bcrypt.compare(input.password, user.passwordHash);
+    if (!passwordMatch) {
+      throw AppError.unauthorized('Invalid email or password.');
+    }
 
-  const token = signToken({ userId: user.id, role: user.role });
+    // Update lastLoginAt
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
 
-  return {
-    token,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    },
-  };
-}
+    const token = signToken({
+      userId: user.id,
+      isSuperAdmin: user.isSuperAdmin,
+    });
 
-/**
- * Returns safe user data by ID.
- * Used by GET /api/auth/me to return fresh data for the authenticated user.
- * Throws 401 if the user no longer exists (e.g. deleted after token was issued).
- */
-export async function getUserById(id: string): Promise<SafeUser> {
-  const user = await prisma.user.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      // passwordHash is intentionally NOT selected
-    },
-  });
+    const memberships: UserOrganizationMembershipSummary[] = user.memberships.map((m) => {
+      const activeSub = m.organization.subscriptions[0];
+      return {
+        organizationId: m.organization.id,
+        organizationName: m.organization.name,
+        organizationSlug: m.organization.slug,
+        role: m.role,
+        status: m.status,
+        subscription: activeSub
+          ? {
+              status: activeSub.status,
+              planName: activeSub.plan.name,
+              planCode: activeSub.plan.code,
+              allowedFeatures: activeSub.plan.allowedFeatures,
+            }
+          : undefined,
+      };
+    });
 
-  if (!user) {
-    const err: AppError = new Error('User not found.');
-    err.statusCode = 401;
-    err.isOperational = true;
-    throw err;
-  }
+    await auditService.log({
+      scope: user.isSuperAdmin ? 'PLATFORM' : 'ORGANIZATION',
+      organizationId: memberships[0]?.organizationId,
+      actorUserId: user.id,
+      action: 'USER_LOGIN',
+      resource: 'User',
+      resourceId: user.id,
+      ipAddress,
+      userAgent,
+    });
 
-  return user;
-}
+    return {
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isSuperAdmin: user.isSuperAdmin,
+        status: user.status,
+        lastLoginAt: user.lastLoginAt,
+      },
+      organizations: memberships,
+    };
+  },
+
+  /**
+   * Self-serve registration for new tenant organization + initial admin user.
+   */
+  async register(input: RegisterInput) {
+    const email = input.email.toLowerCase().trim();
+    const slug = input.organizationSlug.toLowerCase().trim();
+
+    const [existingUser, existingSlug] = await Promise.all([
+      prisma.user.findUnique({ where: { email } }),
+      prisma.organization.findUnique({ where: { slug } }),
+    ]);
+
+    if (existingUser) {
+      throw AppError.conflict('An account with this email address already exists.');
+    }
+    if (existingSlug) {
+      throw AppError.conflict('An organization with this slug / URL identifier is already taken.');
+    }
+
+    const defaultPlan = await prisma.plan.findFirst({
+      where: { code: 'growth_v1', isActive: true },
+    }) || await prisma.plan.findFirst({ where: { isActive: true } });
+
+    if (!defaultPlan) {
+      throw AppError.badRequest('No default subscription plan found.');
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const passwordHash = await bcrypt.hash(input.password, 10);
+
+      const user = await tx.user.create({
+        data: {
+          name: input.name,
+          email,
+          passwordHash,
+          isSuperAdmin: false,
+        },
+      });
+
+      const organization = await tx.organization.create({
+        data: {
+          name: input.organizationName,
+          slug,
+          businessEmail: email,
+        },
+      });
+
+      await tx.organizationMembership.create({
+        data: {
+          userId: user.id,
+          organizationId: organization.id,
+          role: 'ORG_ADMIN',
+          status: 'ACTIVE',
+        },
+      });
+
+      // 7-day Growth Pro Trial
+      const now = new Date();
+      const trialEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await tx.subscription.create({
+        data: {
+          organizationId: organization.id,
+          planId: defaultPlan.id,
+          status: 'TRIAL',
+          billingCycle: 'MONTHLY',
+          currentPeriodStart: now,
+          currentPeriodEnd: trialEnd,
+          trialEndsAt: trialEnd,
+        },
+      });
+
+      const token = signToken({
+        userId: user.id,
+        isSuperAdmin: false,
+      });
+
+      return {
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          isSuperAdmin: false,
+        },
+        organization: {
+          id: organization.id,
+          name: organization.name,
+          slug: organization.slug,
+          role: 'ORG_ADMIN',
+        },
+      };
+    });
+  },
+
+  /**
+   * Retrieves the current user's profile and latest organization memberships.
+   */
+  async getMe(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        memberships: {
+          include: {
+            organization: {
+              include: {
+                subscriptions: {
+                  include: { plan: true },
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw AppError.notFound('User', userId);
+    }
+
+    const memberships: UserOrganizationMembershipSummary[] = user.memberships.map((m) => {
+      const activeSub = m.organization.subscriptions[0];
+      return {
+        organizationId: m.organization.id,
+        organizationName: m.organization.name,
+        organizationSlug: m.organization.slug,
+        role: m.role,
+        status: m.status,
+        subscription: activeSub
+          ? {
+              status: activeSub.status,
+              planName: activeSub.plan.name,
+              planCode: activeSub.plan.code,
+              allowedFeatures: activeSub.plan.allowedFeatures,
+            }
+          : undefined,
+      };
+    });
+
+    return {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isSuperAdmin: user.isSuperAdmin,
+        status: user.status,
+        lastLoginAt: user.lastLoginAt,
+      },
+      organizations: memberships,
+    };
+  },
+};

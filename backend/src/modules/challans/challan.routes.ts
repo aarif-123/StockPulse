@@ -1,27 +1,25 @@
-// Sales Challan routes — mounted at /api/challans in app.ts.
-//
-// Authorization Matrix:
-//   POST   /               → ADMIN, SALES            (create draft challan)
-//   GET    /               → all authenticated roles (list challans)
-//   GET    /:id            → all authenticated roles (get single challan)
-//   POST   /:id/confirm    → ADMIN, SALES            (confirm challan)
-//   POST   /:id/cancel     → ADMIN, SALES            (cancel challan)
-
 import { Router } from 'express';
 import { authenticate } from '../../middleware/authenticate';
-import { authorize } from '../../middleware/authorize';
-import { create, list, getOne, confirm, cancel } from './challan.controller';
+import { resolveTenantContext } from '../../middleware/tenant-context';
+import { requirePermission } from '../../middleware/authorize';
+import { PERMISSIONS } from '../../config/permissions';
+import {
+  createChallan,
+  listChallans,
+  getChallanById,
+  confirmChallan,
+  cancelChallan,
+} from './challan.controller';
 
 const router = Router();
 
-const allRoles  = authorize('ADMIN', 'SALES', 'WAREHOUSE', 'ACCOUNTS');
-const writeRoles = authorize('ADMIN', 'SALES');
+router.use(authenticate);
+router.use(resolveTenantContext);
 
-// Challan Operations
-router.post('/',              authenticate, writeRoles, create);
-router.get('/',               authenticate, allRoles,   list);
-router.get('/:id',            authenticate, allRoles,   getOne);
-router.post('/:id/confirm',   authenticate, writeRoles, confirm);
-router.post('/:id/cancel',    authenticate, writeRoles, cancel);
+router.post('/', requirePermission(PERMISSIONS.CHALLANS_CREATE), createChallan);
+router.get('/', requirePermission(PERMISSIONS.CHALLANS_READ), listChallans);
+router.get('/:id', requirePermission(PERMISSIONS.CHALLANS_READ), getChallanById);
+router.post('/:id/confirm', requirePermission(PERMISSIONS.CHALLANS_CONFIRM), confirmChallan);
+router.post('/:id/cancel', requirePermission(PERMISSIONS.CHALLANS_CANCEL), cancelChallan);
 
 export default router;

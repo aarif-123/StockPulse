@@ -1,10 +1,122 @@
-export type Role = 'ADMIN' | 'SALES' | 'WAREHOUSE' | 'ACCOUNTS';
+export type OrgRole = 'ORG_ADMIN' | 'SALES' | 'WAREHOUSE' | 'ACCOUNTS' | 'CUSTOM';
+export type PlatformRole = 'SUPER_ADMIN' | 'SUPPORT';
+export type Role = OrgRole | 'ADMIN';
+
+export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING';
+export type OrgStatus = 'ACTIVE' | 'SUSPENDED' | 'TRIAL' | 'CANCELLED';
+export type SubscriptionStatus = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED' | 'EXPIRED' | 'CANCELLED';
+export type BillingCycle = 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+export type PaymentMethod = 'UPI_MANUAL' | 'RAZORPAY' | 'BANK_TRANSFER' | 'CASH' | 'CHEQUE' | 'CREDIT';
+export type PaymentRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface UserOrganizationSummary {
+  organizationId: string;
+  organizationName: string;
+  organizationSlug: string;
+  role: OrgRole;
+  status: string;
+  subscription?: {
+    status: SubscriptionStatus;
+    planName: string;
+    planCode: string;
+    allowedFeatures: string[];
+  };
+}
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: Role;
+  isSuperAdmin: boolean;
+  status?: UserStatus;
+  lastLoginAt?: string | null;
+  role: Role; // Contextual active role
+}
+
+export interface Plan {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  monthlyPriceINR: number;
+  yearlyPriceINR: number;
+  maxUsers: number;
+  maxProducts: number;
+  maxCustomers: number;
+  maxWarehouses: number;
+  maxTransactions: number;
+  allowedFeatures: string[];
+  isActive: boolean;
+}
+
+export interface Subscription {
+  id: string;
+  status: SubscriptionStatus;
+  billingCycle: BillingCycle;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  trialEndsAt?: string | null;
+}
+
+export interface OrganizationSettings {
+  id: string;
+  name: string;
+  slug: string;
+  status: OrgStatus;
+  currency: string;
+  businessGstin?: string | null;
+  businessPhone?: string | null;
+  businessEmail?: string | null;
+  businessAddress?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  createdAt: string;
+}
+
+export interface OrganizationMember {
+  membershipId: string;
+  userId: string;
+  name: string;
+  email: string;
+  role: OrgRole;
+  status: string;
+  lastLoginAt?: string | null;
+  joinedAt: string;
+}
+
+export interface PaymentRequest {
+  id: string;
+  organizationId: string;
+  planId: string;
+  amountINR: number;
+  billingCycle: BillingCycle;
+  paymentMethod: PaymentMethod;
+  referenceNumber: string;
+  proofUrl?: string | null;
+  status: PaymentRequestStatus;
+  notes?: string | null;
+  rejectionReason?: string | null;
+  submittedAt: string;
+  reviewedAt?: string | null;
+  organization?: { id: string; name: string; slug: string };
+  plan?: { id: string; name: string; code: string };
+  submitter?: { id: string; name: string; email: string };
+  reviewer?: { id: string; name: string; email: string };
+}
+
+export interface AuditLogItem {
+  id: string;
+  scope: string;
+  action: string;
+  resource: string;
+  resourceId?: string | null;
+  metadata?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  createdAt: string;
+  actor?: { id: string; name: string; email: string };
+  organization?: { id: string; name: string; slug: string };
 }
 
 export type CustomerType = 'RETAIL' | 'WHOLESALE' | 'DISTRIBUTOR';
@@ -17,9 +129,16 @@ export interface Customer {
   email: string;
   businessName: string;
   gstNumber?: string | null;
+  gstin?: string | null;
   customerType: CustomerType;
+  type?: CustomerType;
   address: string;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
   status: CustomerStatus;
+  creditLimit?: number;
+  outstanding?: number;
   followUpDate?: string | null;
   notes?: string | null;
   createdAt: string;
@@ -51,7 +170,6 @@ export interface StockMovement {
     id: string;
     name: string;
     email: string;
-    role: Role;
   };
 }
 
@@ -80,12 +198,21 @@ export interface Challan {
     id: string;
     name: string;
     businessName: string;
+    mobile?: string;
+    email?: string;
+    address?: string;
+    gstNumber?: string | null;
+  };
+  user?: {
+    id: string;
+    name: string;
+    email: string;
   };
   creator?: {
     id: string;
     name: string;
     email: string;
-    role: Role;
+    role?: Role;
   };
   items?: ChallanItem[];
 }

@@ -1,8 +1,4 @@
-// Zod validation schemas for the Sales Challan module.
-
 import { z } from 'zod';
-
-// ── Create Challan ────────────────────────────────────────────────────────────
 
 export const createChallanSchema = z.object({
   customerId: z
@@ -28,11 +24,18 @@ export const createChallanSchema = z.object({
 
 export type CreateChallanInput = z.infer<typeof createChallanSchema>;
 
-// ── Challan List Query ────────────────────────────────────────────────────────
-
 export const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100, 'Limit cannot exceed 100.').default(10),
+  limit: z.coerce.number().int().min(1).max(500, 'Limit cannot exceed 500.').default(10),
+  status: z.enum(['DRAFT', 'CONFIRMED', 'CANCELLED']).optional(),
+  search: z.string().trim().optional(),
 });
 
 export type ListQueryInput = z.infer<typeof listQuerySchema>;
+
+export const ChallanIdParamSchema = z.object({
+  id: z.string().min(1, 'Challan ID is required'),
+});
+
+export const CreateChallanSchema = createChallanSchema;
+export const ListQuerySchema = listQuerySchema;

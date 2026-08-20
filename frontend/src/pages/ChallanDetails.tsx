@@ -1,22 +1,31 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { challanService } from '../services/challan.service';
 import { handleApiError } from '../services/api';
 import type { Challan } from '../types';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
+import { ToastContainer } from '../components/common/ToastContainer';
+import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
+import { PageHeader } from '../components/common/PageHeader';
+import { StatusBadge } from '../components/common/StatusBadge';
+import { computeGstBreakdown } from '../utils/taxEngine';
+import {
+  IconPrinter, IconCheck, IconAlertTriangle, IconCopy,
+} from '../components/common/Icons';
 
 export const ChallanDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
-  const canModify = user && ['ADMIN', 'SALES'].includes(user.role);
+  const navigate = useNavigate();
+  const { hasRole } = useAuth();
+  const { toasts, toast, removeToast } = useToast();
+  const canModify = hasRole(['ORG_ADMIN', 'ADMIN', 'SALES']);
+  const canCreate = hasRole(['ORG_ADMIN', 'ADMIN', 'SALES']);
 
   const [challan, setChallan] = useState<Challan | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Action states
   const [actionLoading, setActionLoading] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
 
   const fetchChallanDetails = useCallback(async () => {
     if (!id) return;
@@ -33,15 +42,14 @@ export const ChallanDetails: React.FC = () => {
   }, [id]);
 
   useEffect(() => {
-    fetchChallanDetails();
+    void fetchChallanDetails();
   }, [fetchChallanDetails]);
 
   const handleConfirm = async () => {
     if (!id || !challan) return;
-    setActionError(null);
 
     const isConfirmed = window.confirm(
-      `Are you sure you want to confirm Delivery Challan ${challan.challanNumber}? This will reduce inventory levels and cannot be undone.`
+      `Confirm Delivery Challan ${challan.challanNumber}? This will deduct product inventory and cannot be undone.`
     );
     if (!isConfirmed) return;
 
@@ -49,9 +57,9 @@ export const ChallanDetails: React.FC = () => {
     try {
       const response = await challanService.confirmChallan(id);
       setChallan(response.data);
-      alert('Challan confirmed successfully.');
+      toast.success(`Challan ${challan.challanNumber} confirmed and stock updated.`);
     } catch (err) {
-      setActionError(handleApiError(err));
+      toast.error(handleApiError(err));
     } finally {
       setActionLoading(false);
     }
@@ -59,10 +67,9 @@ export const ChallanDetails: React.FC = () => {
 
   const handleCancel = async () => {
     if (!id || !challan) return;
-    setActionError(null);
 
     const isCancelled = window.confirm(
-      `Are you sure you want to cancel Delivery Challan ${challan.challanNumber}? This will mark it as cancelled without affecting stock levels.`
+      `Cancel Delivery Challan ${challan.challanNumber}? This will mark it as cancelled without modifying inventory.`
     );
     if (!isCancelled) return;
 
@@ -70,19 +77,34 @@ export const ChallanDetails: React.FC = () => {
     try {
       const response = await challanService.cancelChallan(id);
       setChallan(response.data);
-      alert('Challan cancelled successfully.');
+      toast.warning(`Challan ${challan.challanNumber} has been cancelled.`);
     } catch (err) {
-      setActionError(handleApiError(err));
+      toast.error(handleApiError(err));
     } finally {
       setActionLoading(false);
     }
   };
 
+  const handleCloneReorder = () => {
+    if (!challan) return;
+    navigate(`/challans/new?cloneFrom=${challan.id}`);
+  };
+
+  const handleCopyChallanNumber = () => {
+    if (!challan) return;
+    void navigator.clipboard.writeText(challan.challanNumber);
+    toast.info(`Copied ${challan.challanNumber} to clipboard`);
+  };
+
   if (loading) {
     return (
-      <div className="page-loader">
-        <div className="spinner"></div>
-        <p>Loading delivery challan details...</p>
+      <div>
+        <div className="mb-24">
+          <LoadingSkeleton lines={2} />
+        </div>
+        <div className="details-grid">
+          <LoadingSkeleton variant="card" count={2} />
+        </div>
       </div>
     );
   }
@@ -91,7 +113,7 @@ export const ChallanDetails: React.FC = () => {
     return (
       <div className="alert alert-danger" style={{ margin: '32px' }}>
         <strong>Error:</strong> {error || 'Challan record not found.'}
-        <div style={{ marginTop: '16px' }}>
+        <div className="mt-16">
           <Link to="/challans" className="btn btn-secondary">
             Back to Challans List
           </Link>
@@ -100,101 +122,253 @@ export const ChallanDetails: React.FC = () => {
     );
   }
 
-  const renderBadge = (status: string) => {
-    if (status === 'CONFIRMED') return <span className="badge badge-success">Confirmed</span>;
-    if (status === 'DRAFT') return <span className="badge badge-warning">Draft</span>;
-    return <span className="badge badge-danger">Cancelled</span>;
-  };
+  const subtotal = challan.items?.reduce(
+    (acc, item) => acc + Number(item.unitPrice) * item.quantity,
+    0
+  ) ?? 0;
+
+  const taxDetails = computeGstBreakdown(
+    subtotal,
+    0.18,
+    challan.customer?.gstNumber
+  );
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <Link to="/challans" style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 600 }}>
-            ← Back to Challans
-          </Link>
-          <h1 className="page-title" style={{ marginTop: '8px' }}>Challan: {challan.challanNumber}</h1>
+      <ToastContainer toasts={toasts} onDismiss={removeToast} />
+
+      <PageHeader
+        title={`Challan: ${challan.challanNumber}`}
+        subtitle={`Created on ${new Date(challan.createdAt).toLocaleDateString('en-IN', {
+          day: '2-digit', month: 'long', year: 'numeric',
+        })}`}
+        backTo={{ label: 'Delivery Challans', href: '/challans' }}
+        actions={
+          <div className="flex-center gap-8">
+            <button
+              type="button"
+              className="copy-pill"
+              onClick={handleCopyChallanNumber}
+              title="Copy ID"
+            >
+              <IconCopy size={13} /> {challan.challanNumber}
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => window.print()}
+              id="print-challan-btn"
+            >
+              <IconPrinter size={14} /> Print Slip
+            </button>
+
+            {canCreate && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleCloneReorder}
+                id="clone-challan-btn"
+                title="Duplicate items to new draft challan"
+              >
+                Re-Order / Clone
+              </button>
+            )}
+
+            {challan.status === 'DRAFT' && canModify && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm"
+                  onClick={handleCancel}
+                  disabled={actionLoading}
+                  id="cancel-challan-btn"
+                >
+                  <IconAlertTriangle size={13} /> Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-success btn-sm"
+                  onClick={handleConfirm}
+                  disabled={actionLoading}
+                  id="confirm-challan-btn"
+                >
+                  <IconCheck size={13} />
+                  {actionLoading ? 'Confirming...' : 'Confirm Delivery'}
+                </button>
+              </>
+            )}
+          </div>
+        }
+      />
+
+      {/* Formal Invoice & Delivery Slip Container */}
+      <div className="card" style={{ marginBottom: '24px', padding: '28px' }}>
+        {/* Invoice Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px', marginBottom: '20px' }}>
+          <div>
+            <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary-hover)', letterSpacing: '-0.02em' }}>
+              STOCKPULSE ENTERPRISES
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              GSTIN: 27AAAAA0000A1Z5 • State Code: 27 (Maharashtra)
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+              Logistics Hub, Sector 4, Tech City, India
+            </div>
+          </div>
+
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+              {challan.challanNumber}
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              Date: {new Date(challan.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </div>
+            <div style={{ marginTop: '6px' }}>
+              {StatusBadge.challan(challan.status)}
+            </div>
+          </div>
         </div>
 
-        {challan.status === 'DRAFT' && canModify && (
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button className="btn btn-danger" onClick={handleCancel} disabled={actionLoading}>
-              Cancel Challan
-            </button>
-            <button className="btn btn-primary" onClick={handleConfirm} disabled={actionLoading}>
-              {actionLoading ? 'Confirming...' : 'Confirm Delivery'}
-            </button>
+        {/* Bill To / Consignee Section */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+          <div style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '8px' }}>
+            <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-tertiary)', fontWeight: 700, marginBottom: '6px' }}>
+              CONSIGNEE / BILL TO
+            </div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              {challan.customer?.businessName || challan.customer?.name}
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              Attention: {challan.customer?.name}
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+              Mobile: {challan.customer?.mobile || '—'} • Email: {challan.customer?.email || '—'}
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+              Address: {challan.customer?.address || '—'}
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-primary)', marginTop: '4px', fontWeight: 600 }}>
+              GSTIN: {challan.customer?.gstNumber || 'Unregistered'} • {taxDetails.isIntraState ? 'Intra-State Supply' : 'Inter-State Supply'}
+            </div>
           </div>
-        )}
-      </div>
 
-      {actionError && <div className="alert alert-danger" style={{ marginBottom: '24px' }}>{actionError}</div>}
+          <div style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '8px' }}>
+            <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-tertiary)', fontWeight: 700, marginBottom: '6px' }}>
+              DISPATCH & ORDER METADATA
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.7' }}>
+              <div><strong>Prepared By:</strong> {challan.creator?.name || 'System'}</div>
+              <div><strong>Operator Email:</strong> {challan.creator?.email || '—'}</div>
+              <div><strong>Mode of Transport:</strong> Surface Cargo / Direct Fleet</div>
+              <div><strong>Payment Terms:</strong> Net 30 Days from Receipt</div>
+            </div>
+          </div>
+        </div>
 
-      <div className="details-grid">
-        {/* Left column: List of items copied at draft creation time */}
-        <div className="card" style={{ padding: '24px 0 0' }}>
-          <h3 className="card-title" style={{ padding: '0 24px 12px 24px' }}>Products Snapshots List</h3>
-          
-          <div className="table-responsive">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Product Name</th>
-                  <th>SKU</th>
-                  <th>Unit Price</th>
-                  <th>Quantity</th>
-                  <th style={{ textAlign: 'right' }}>Total</th>
+        {/* Line Items Table */}
+        <div className="table-wrapper">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th style={{ width: '40px' }}>#</th>
+                <th>Item Description</th>
+                <th>SKU</th>
+                <th className="text-right">Unit Price</th>
+                <th style={{ textAlign: 'center' }}>Qty</th>
+                <th className="text-right">Taxable Amt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {challan.items?.map((item, idx) => (
+                <tr key={item.id}>
+                  <td style={{ color: 'var(--text-tertiary)' }}>{idx + 1}</td>
+                  <td style={{ fontWeight: 600 }}>{item.productName}</td>
+                  <td className="text-mono">{item.sku}</td>
+                  <td className="text-right">₹{Number(item.unitPrice).toFixed(2)}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 600 }}>{item.quantity}</td>
+                  <td className="text-right" style={{ fontWeight: 600 }}>
+                    ₹{(Number(item.unitPrice) * item.quantity).toFixed(2)}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {challan.items?.map((item) => (
-                  <tr key={item.id}>
-                    <td style={{ fontWeight: 600 }}>{item.productName}</td>
-                    <td style={{ fontFamily: 'var(--mono)', fontSize: '13px' }}>{item.sku}</td>
-                    <td>₹{Number(item.unitPrice).toFixed(2)}</td>
-                    <td>{item.quantity} units</td>
-                    <td style={{ textAlign: 'right', fontWeight: 600 }}>
-                      ₹{(Number(item.unitPrice) * item.quantity).toFixed(2)}
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={4} style={{ textAlign: 'right', fontWeight: 600 }}>Subtotal:</td>
+                <td style={{ textAlign: 'center', fontWeight: 700 }}>{challan.totalQuantity} units</td>
+                <td className="text-right" style={{ fontWeight: 700 }}>₹{taxDetails.subtotal.toFixed(2)}</td>
+              </tr>
+
+              {taxDetails.isIntraState ? (
+                <>
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
+                      Central GST (CGST {(taxDetails.cgstRate * 100).toFixed(1)}%):
+                    </td>
+                    <td className="text-right" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                      +₹{taxDetails.cgstAmount.toFixed(2)}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
+                      State GST (SGST {(taxDetails.sgstRate * 100).toFixed(1)}%):
+                    </td>
+                    <td className="text-right" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                      +₹{taxDetails.sgstAmount.toFixed(2)}
+                    </td>
+                  </tr>
+                </>
+              ) : (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
+                    Integrated GST (IGST {(taxDetails.igstRate * 100).toFixed(1)}%):
+                  </td>
+                  <td className="text-right" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                    +₹{taxDetails.igstAmount.toFixed(2)}
+                  </td>
+                </tr>
+              )}
+
+              <tr style={{ background: 'var(--bg-tertiary)', fontSize: '15px' }}>
+                <td colSpan={5} style={{ textAlign: 'right', fontWeight: 800 }}>
+                  Total Invoice Amount (INR):
+                </td>
+                <td className="text-right" style={{ fontWeight: 800, color: 'var(--primary-hover)' }}>
+                  ₹{taxDetails.grandTotal.toFixed(2)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
 
-        {/* Right column: general settings metadata */}
-        <div>
-          <div className="card">
-            <h3 className="card-title">Challan Summary</h3>
-            <div className="info-list" style={{ gap: '16px' }}>
-              <div className="info-item">
-                <span className="info-label">Customer / Client</span>
-                <span className="info-value" style={{ fontWeight: 600 }}>
-                  {challan.customer?.businessName || 'N/A'}
-                </span>
-                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  Name: {challan.customer?.name}
-                </span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Status</span>
-                <span className="info-value">{renderBadge(challan.status)}</span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Authoritative Total Quantity</span>
-                <span className="info-value" style={{ fontSize: '20px', fontWeight: 700 }}>
-                  {challan.totalQuantity} items
-                </span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Created By</span>
-                <span className="info-value">{challan.creator?.name} ({challan.creator?.email})</span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Creation Date</span>
-                <span className="info-value">{new Date(challan.createdAt).toLocaleString()}</span>
-              </div>
+        {/* Signatures and Acknowledgement Footer */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: '30px',
+          marginTop: '40px',
+          paddingTop: '24px',
+          borderTop: '1px solid var(--border-color)'
+        }}>
+          <div>
+            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '40px' }}>
+              Customer Receiver Signature & Stamp:
+            </div>
+            <div style={{ borderBottom: '1px solid var(--border-color)', width: '80%' }} />
+            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+              Goods received in good condition
+            </div>
+          </div>
+
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '40px' }}>
+              For StockPulse Enterprises (Authorized Signatory):
+            </div>
+            <div style={{ borderBottom: '1px solid var(--border-color)', width: '80%', marginLeft: 'auto' }} />
+            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+              Digitally Verified Dispatch
             </div>
           </div>
         </div>
@@ -202,4 +376,5 @@ export const ChallanDetails: React.FC = () => {
     </div>
   );
 };
+
 export default ChallanDetails;

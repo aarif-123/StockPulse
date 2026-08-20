@@ -1,6 +1,5 @@
 import axios, { AxiosError } from 'axios';
 
-// Get API base URL from Vite environment variables (fallback to local server)
 const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export const api = axios.create({
@@ -10,12 +9,17 @@ export const api = axios.create({
   },
 });
 
-// Request Interceptor: Attach bearer token to outgoing requests if it exists
+// Request Interceptor: Attach bearer token & active organization header
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
+    const activeOrgId = localStorage.getItem('activeOrgId');
+
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (activeOrgId && config.headers) {
+      config.headers['x-organization-id'] = activeOrgId;
     }
     return config;
   },
@@ -29,12 +33,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Clear token and user details on unauthorized access
       localStorage.removeItem('authToken');
       localStorage.removeItem('authUser');
-      
-      // Force page redirect to login page (avoid window location loop if already on login page)
-      if (!window.location.pathname.endsWith('/login')) {
+      localStorage.removeItem('activeOrgId');
+      localStorage.removeItem('userOrganizations');
+
+      if (!window.location.pathname.endsWith('/login') && !window.location.pathname.endsWith('/register')) {
         window.location.href = '/login';
       }
     }
@@ -44,16 +48,13 @@ api.interceptors.response.use(
 
 /**
  * Normalizes Axios errors into human-readable messages.
- * Strips raw database queries and server traces before presenting to user.
  */
 export function handleApiError(err: unknown): string {
   if (axios.isAxiosError(err)) {
-    const axiosError = err as AxiosError<{ message?: string; status?: string }>;
+    const axiosError = err as AxiosError<{ message?: string; status?: string; code?: string }>;
     if (axiosError.response) {
-      // Standard backend operational error or validation error
       return axiosError.response.data?.message || `Request failed with status code ${axiosError.response.status}`;
     } else if (axiosError.request) {
-      // No response received from server
       return 'No response from server. Please verify your connection.';
     }
   }

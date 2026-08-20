@@ -1,0 +1,16 @@
+{
+  "name": "StockPulse — B2B Inventory Intelligence & Supply Chain Operations",
+  "short_name": "StockPulse",
+  "description": "B2B inventory management platform with AI demand runway forecasting, GST Rule 55 delivery challans, and multi-warehouse stock control.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

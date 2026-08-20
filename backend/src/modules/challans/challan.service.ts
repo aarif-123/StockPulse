@@ -1,71 +1,57 @@
-// Sales Challan service — business logic.
-
 import { Prisma, Challan } from '@prisma/client';
 import prisma from '../../config/database';
 import { AppError } from '../../middleware/error-handler';
 import type { CreateChallanInput, ListQueryInput } from './challan.schema';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Throws a clean 404 operational error. */
 function notFound(id: string, resource = 'Challan'): AppError {
-  const err: AppError = new Error(`${resource} with id "${id}" not found.`);
-  err.statusCode = 404;
-  err.isOperational = true;
-  return err;
+  return AppError.notFound(resource, id);
 }
 
-// ── Service Functions ─────────────────────────────────────────────────────────
-
-/**
- * Creates a new Challan in DRAFT status with product snapshots.
- * Does not modify product stock.
- * Handles concurrent challanNumber generation safely via transaction and unique-key retries.
- */
-export async function createChallan(createdBy: string, input: CreateChallanInput) {
-  // 1. Verify customer exists
-  const customer = await prisma.customer.findUnique({
-    where: { id: input.customerId },
+export async function createChallan(organizationId: string, createdBy: string, input: CreateChallanInput) {
+  const customer = await prisma.customer.findFirst({
+    where: { id: input.customerId, organizationId },
   });
   if (!customer) {
     throw notFound(input.customerId, 'Customer');
   }
 
-  // 2. Perform retry loop for unique challanNumber creation
   let attempts = 3;
   while (attempts > 0) {
     try {
       return await prisma.$transaction(async (tx) => {
-        // Find latest challanNumber and increment
-        const latest = await tx.challan.findFirst({
-          orderBy: { challanNumber: 'desc' },
+        const existingChallans = await tx.challan.findMany({
+          where: { organizationId },
           select: { challanNumber: true },
+          take: 500,
+          orderBy: { createdAt: 'desc' },
         });
 
-        let nextNum = 1;
-        if (latest) {
-          const match = latest.challanNumber.match(/^CH-(\d+)$/);
+        let maxNum = 0;
+        for (const c of existingChallans) {
+          const match = c.challanNumber.match(/(\d+)$/);
           if (match) {
-            nextNum = parseInt(match[1], 10) + 1;
+            const num = parseInt(match[1], 10);
+            if (num > maxNum) maxNum = num;
           }
         }
+        if (maxNum === 0) {
+          maxNum = await tx.challan.count({ where: { organizationId } });
+        }
+        const nextNum = maxNum + 1 + (3 - attempts);
         const challanNumber = `CH-${String(nextNum).padStart(6, '0')}`;
 
-        // Fetch products details for snapshots
         const productIds = input.items.map((item) => item.productId);
         const products = await tx.product.findMany({
-          where: { id: { in: productIds } },
+          where: { id: { in: productIds }, organizationId },
         });
         const productMap = new Map(products.map((p) => [p.id, p]));
 
-        // Validate that every product exists
         for (const item of input.items) {
           if (!productMap.has(item.productId)) {
             throw notFound(item.productId, 'Product');
           }
         }
 
-        // Calculate totalQuantity and construct item snapshots
         let totalQuantity = 0;
         const itemsData = input.items.map((item) => {
           const prod = productMap.get(item.productId)!;
@@ -79,9 +65,9 @@ export async function createChallan(createdBy: string, input: CreateChallanInput
           };
         });
 
-        // Insert challan record
         const challan = await tx.challan.create({
           data: {
+            organizationId,
             challanNumber,
             customerId:    input.customerId,
             status:        'DRAFT',
@@ -115,29 +101,41 @@ export async function createChallan(createdBy: string, input: CreateChallanInput
   throw new Error('Challan creation failed due to repeated concurrency conflicts.');
 }
 
-/** Retrieves paginated list of challans, sorted newest first. */
-export async function listChallans(query: ListQueryInput) {
-  const { page, limit } = query;
+export async function listChallans(organizationId: string, query: ListQueryInput) {
+  const { page, limit, status, search } = query;
   const skip = (page - 1) * limit;
 
-  const [challans, total] = await prisma.$transaction([
+  const where: Prisma.ChallanWhereInput = {
+    organizationId,
+    ...(status && { status }),
+    ...(search && {
+      OR: [
+        { challanNumber: { contains: search, mode: 'insensitive' } },
+        { customer: { name: { contains: search, mode: 'insensitive' } } },
+        { customer: { businessName: { contains: search, mode: 'insensitive' } } },
+      ],
+    }),
+  };
+
+  const [challans, total] = await Promise.all([
     prisma.challan.findMany({
+      where,
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
       include: {
         customer: true,
+        items: true,
         user: {
           select: {
             id:    true,
             name:  true,
             email: true,
-            role:  true,
           },
         },
       },
     }),
-    prisma.challan.count(),
+    prisma.challan.count({ where }),
   ]);
 
   return {
@@ -151,10 +149,9 @@ export async function listChallans(query: ListQueryInput) {
   };
 }
 
-/** Retrieves a single challan by ID with items, customer, and creator. */
-export async function getChallanById(id: string) {
-  const challan = await prisma.challan.findUnique({
-    where: { id },
+export async function getChallanById(organizationId: string, id: string) {
+  const challan = await prisma.challan.findFirst({
+    where: { id, organizationId },
     include: {
       customer: true,
       items: true,
@@ -163,7 +160,6 @@ export async function getChallanById(id: string) {
           id:    true,
           name:  true,
           email: true,
-          role:  true,
         },
       },
     },
@@ -172,33 +168,20 @@ export async function getChallanById(id: string) {
   return challan;
 }
 
-/**
- * Confirms a DRAFT challan in an atomic transaction.
- * 1. Locks the product rows to prevent concurrent double-booking.
- * 2. Checks stock levels.
- * 3. Deducts stock and writes OUT movements for every item.
- * 4. Confirms the challan.
- */
-export async function confirmChallan(id: string, confirmedBy: string) {
+export async function confirmChallan(organizationId: string, id: string, confirmedBy: string) {
   return prisma.$transaction(async (tx) => {
-    // 1. Fetch Challan details
-    const challan = await tx.challan.findUnique({
-      where: { id },
+    const challan = await tx.challan.findFirst({
+      where: { id, organizationId },
       include: { items: true },
     });
     if (!challan) {
       throw notFound(id);
     }
 
-    // 2. State Guard
     if (challan.status !== 'DRAFT') {
-      const err: AppError = new Error(`Cannot confirm a challan with status ${challan.status}.`);
-      err.statusCode = 400;
-      err.isOperational = true;
-      throw err;
+      throw AppError.badRequest(`Cannot confirm a challan with status ${challan.status}.`);
     }
 
-    // 3. Aggregate quantities per product ID to handle duplicate references in the same challan
     const productReq = new Map<string, number>();
     for (const item of challan.items) {
       const current = productReq.get(item.productId) ?? 0;
@@ -206,33 +189,26 @@ export async function confirmChallan(id: string, confirmedBy: string) {
     }
     const productIds = Array.from(productReq.keys());
 
-    // 4. Concurrency lock: Acquire SELECT FOR UPDATE lock on the affected products
-    await tx.$executeRawUnsafe(
-      `SELECT id FROM products WHERE id IN (${productIds.map((id) => `'${id}'`).join(',')}) FOR UPDATE`
+    await tx.$queryRaw(
+      Prisma.sql`SELECT id FROM products WHERE id IN (${Prisma.join(productIds)}) AND "organizationId" = ${organizationId} FOR UPDATE`
     );
 
-    // 5. Fetch current stock levels of locked products
     const products = await tx.product.findMany({
-      where: { id: { in: productIds } },
+      where: { id: { in: productIds }, organizationId },
       select: { id: true, name: true, currentStock: true },
     });
     const productMap = new Map(products.map((p) => [p.id, p]));
 
-    // 6. Verify stock availability
     for (const [productId, reqQty] of productReq.entries()) {
       const prod = productMap.get(productId);
       if (!prod) {
         throw notFound(productId, 'Product');
       }
       if (prod.currentStock < reqQty) {
-        const err: AppError = new Error(`Insufficient stock for product: ${prod.name}`);
-        err.statusCode = 400;
-        err.isOperational = true;
-        throw err;
+        throw AppError.badRequest(`Insufficient stock for product: ${prod.name}`);
       }
     }
 
-    // 7. Deduct stock levels and record OUT movements
     for (const item of challan.items) {
       await tx.product.update({
         where: { id: item.productId },
@@ -241,6 +217,7 @@ export async function confirmChallan(id: string, confirmedBy: string) {
 
       await tx.stockMovement.create({
         data: {
+          organizationId,
           productId: item.productId,
           quantity:  item.quantity,
           type:      'OUT',
@@ -250,7 +227,6 @@ export async function confirmChallan(id: string, confirmedBy: string) {
       });
     }
 
-    // 8. Update Challan status to CONFIRMED
     const updatedChallan = await tx.challan.update({
       where: { id },
       data: { status: 'CONFIRMED' },
@@ -264,17 +240,13 @@ export async function confirmChallan(id: string, confirmedBy: string) {
   }, { maxWait: 15000, timeout: 30000 });
 }
 
-/** Cancels a DRAFT challan. Does not affect stock levels or create movements. */
-export async function cancelChallan(id: string): Promise<Challan> {
+export async function cancelChallan(organizationId: string, id: string): Promise<Challan> {
   return prisma.$transaction(async (tx) => {
-    const challan = await tx.challan.findUnique({ where: { id } });
+    const challan = await tx.challan.findFirst({ where: { id, organizationId } });
     if (!challan) throw notFound(id);
 
     if (challan.status !== 'DRAFT') {
-      const err: AppError = new Error(`Cannot cancel a challan with status ${challan.status}.`);
-      err.statusCode = 400;
-      err.isOperational = true;
-      throw err;
+      throw AppError.badRequest(`Cannot cancel a challan with status ${challan.status}.`);
     }
 
     const updated = await tx.challan.update({

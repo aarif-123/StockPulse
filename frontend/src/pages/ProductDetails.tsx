@@ -4,11 +4,20 @@ import { productService } from '../services/product.service';
 import { handleApiError } from '../services/api';
 import type { Product, StockMovement } from '../types';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
+import { ToastContainer } from '../components/common/ToastContainer';
+import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
+import { Pagination } from '../components/common/Pagination';
+import { PageHeader } from '../components/common/PageHeader';
+import { EmptyState } from '../components/common/EmptyState';
+import { calculateInventoryVelocity } from '../utils/inventoryVelocity';
+import { IconPlus, IconAlertTriangle } from '../components/common/Icons';
 
 export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
-  const canAdjustStock = user && ['ADMIN', 'WAREHOUSE'].includes(user.role);
+  const { hasRole } = useAuth();
+  const { toasts, toast, removeToast } = useToast();
+  const canAdjustStock = hasRole(['ORG_ADMIN', 'ADMIN', 'WAREHOUSE']);
 
   // States
   const [product, setProduct] = useState<Product | null>(null);
@@ -54,19 +63,18 @@ export const ProductDetails: React.FC = () => {
   }, [id, movPage]);
 
   useEffect(() => {
-    const bootstrap = async () => {
+    let mounted = true;
+    const loadAll = async () => {
       setLoading(true);
       setError(null);
       await Promise.all([fetchProductDetails(), fetchProductMovements()]);
-      setLoading(false);
+      if (mounted) setLoading(false);
     };
-    bootstrap();
-  }, [id, fetchProductDetails, fetchProductMovements]);
-
-  // Handle page change for movements pagination
-  useEffect(() => {
-    fetchProductMovements();
-  }, [movPage, fetchProductMovements]);
+    void loadAll();
+    return () => {
+      mounted = false;
+    };
+  }, [fetchProductDetails, fetchProductMovements]);
 
   const handleOpenMovement = (type: 'IN' | 'OUT') => {
     setMovementType(type);
@@ -79,36 +87,35 @@ export const ProductDetails: React.FC = () => {
   const handleMovementSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id || !product) return;
-    setSubmitError(null);
 
     const qty = parseInt(quantity, 10);
     if (isNaN(qty) || qty <= 0) {
-      setSubmitError('Quantity must be an integer greater than zero.');
-      return;
-    }
-
-    if (!reason.trim()) {
-      setSubmitError('Please specify a reason for this movement.');
+      setSubmitError('Quantity must be a positive integer.');
       return;
     }
 
     if (movementType === 'OUT' && qty > product.currentStock) {
-      setSubmitError(`Insufficient stock. Max available to pull out is ${product.currentStock}.`);
+      setSubmitError(`Cannot deduct ${qty} units. Current stock is only ${product.currentStock}.`);
+      return;
+    }
+
+    if (!reason.trim()) {
+      setSubmitError('Please specify the reason for this inventory movement.');
       return;
     }
 
     setSubmitting(true);
+    setSubmitError(null);
     try {
       await productService.createStockMovement(id, {
-        type: movementType,
         quantity: qty,
+        type: movementType,
         reason: reason.trim(),
       });
 
       setIsMovementOpen(false);
-      setMovPage(1); // Reset page to view latest movement
-      
-      // Reload details to show updated stock level and log
+      setMovPage(1);
+      toast.success(`Stock ${movementType} (${qty} units) recorded successfully.`);
       await Promise.all([fetchProductDetails(), fetchProductMovements()]);
     } catch (err) {
       setSubmitError(handleApiError(err));
@@ -119,9 +126,13 @@ export const ProductDetails: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="page-loader">
-        <div className="spinner"></div>
-        <p>Loading inventory details...</p>
+      <div>
+        <div className="mb-24">
+          <LoadingSkeleton lines={2} />
+        </div>
+        <div className="details-grid">
+          <LoadingSkeleton variant="card" count={2} />
+        </div>
       </div>
     );
   }
@@ -130,7 +141,7 @@ export const ProductDetails: React.FC = () => {
     return (
       <div className="alert alert-danger" style={{ margin: '32px' }}>
         <strong>Error:</strong> {error || 'Product not found.'}
-        <div style={{ marginTop: '16px' }}>
+        <div className="mt-16">
           <Link to="/products" className="btn btn-secondary">
             Back to Catalog
           </Link>
@@ -143,35 +154,43 @@ export const ProductDetails: React.FC = () => {
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <Link to="/products" style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 600 }}>
-            ← Back to Products Catalog
-          </Link>
-          <h1 className="page-title" style={{ marginTop: '8px' }}>{product.name}</h1>
-        </div>
+      <ToastContainer toasts={toasts} onDismiss={removeToast} />
 
-        {canAdjustStock && (
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button className="btn btn-success" onClick={() => handleOpenMovement('IN')}>
-              Stock IN (+)
-            </button>
-            <button className="btn btn-danger" onClick={() => handleOpenMovement('OUT')}>
-              Stock OUT (-)
-            </button>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title={product.name}
+        subtitle={`${product.category} · SKU: ${product.sku}`}
+        backTo={{ label: 'Products Catalog', href: '/products' }}
+        actions={
+          canAdjustStock && (
+            <div className="flex-center gap-8">
+              <button
+                className="btn btn-success btn-sm"
+                onClick={() => handleOpenMovement('IN')}
+                id="stock-in-btn"
+              >
+                <IconPlus size={13} /> Stock IN
+              </button>
+              <button
+                className="btn btn-danger btn-sm"
+                onClick={() => handleOpenMovement('OUT')}
+                id="stock-out-btn"
+              >
+                - Stock OUT
+              </button>
+            </div>
+          )
+        }
+      />
 
       <div className="details-grid">
         {/* Left column: Core Product Information */}
         <div>
           <div className="card">
-            <h3 className="card-title">Inventory Parameters</h3>
-            <div className="info-list" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <h3 className="card-title card-title--bordered">Inventory Parameters</h3>
+            <div className="info-grid">
               <div className="info-item">
                 <span className="info-label">SKU / Code</span>
-                <span className="info-value" style={{ fontFamily: 'var(--mono)' }}>{product.sku}</span>
+                <span className="info-value text-mono">{product.sku}</span>
               </div>
               <div className="info-item">
                 <span className="info-label">Category</span>
@@ -189,69 +208,122 @@ export const ProductDetails: React.FC = () => {
           </div>
 
           <div className="card">
-            <h3 className="card-title">Inventory Quantities</h3>
-            <div className="info-list" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <h3 className="card-title card-title--bordered">Inventory Quantities</h3>
+            <div className="info-grid">
               <div className="info-item">
                 <span className="info-label">Current Stock Level</span>
-                <span 
-                  className="info-value" 
-                  style={{ 
-                    fontSize: '24px', 
-                    fontWeight: 700, 
-                    color: isLowStock ? 'var(--danger)' : 'var(--success)' 
+                <span
+                  className="info-value"
+                  style={{
+                    fontSize: '24px',
+                    fontWeight: 700,
+                    color: isLowStock ? 'var(--danger)' : 'var(--success)',
                   }}
                 >
-                  {product.currentStock}
+                  {product.currentStock} units
                 </span>
               </div>
               <div className="info-item">
-                <span className="info-label">Minimum Stock Alert</span>
+                <span className="info-label">Minimum Safety Level</span>
                 <span className="info-value" style={{ fontSize: '24px', fontWeight: 700 }}>
-                  {product.minimumStock}
+                  {product.minimumStock} units
                 </span>
               </div>
             </div>
             {isLowStock && (
-              <div className="alert alert-danger" style={{ marginTop: '20px', marginBottom: 0 }}>
-                ⚠️ <strong>Low Stock Alert!</strong> Current stock levels are below the required threshold.
+              <div className="alert alert-danger" style={{ marginTop: '16px', marginBottom: 0 }}>
+                <IconAlertTriangle size={16} />
+                <span><strong>Low Stock Alert!</strong> Current stock level is at or below minimum threshold.</span>
               </div>
             )}
           </div>
+
+          {/* Predictive Velocity & Stock Runway Card */}
+          {(() => {
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            const recentOutflow = movements
+              .filter((m) => m.type === 'OUT' && new Date(m.createdAt) >= sevenDaysAgo)
+              .reduce((acc, m) => acc + m.quantity, 0);
+            const velocity = calculateInventoryVelocity(product.currentStock, recentOutflow, 7);
+
+            return (
+              <div className="card">
+                <div className="flex-between mb-12">
+                  <h3 className="card-title" style={{ margin: 0 }}>Predictive Stock Runway</h3>
+                  <span className={`badge ${velocity.badgeClass}`}>
+                    {velocity.statusLabel}
+                  </span>
+                </div>
+
+                <div className="info-grid">
+                  <div className="info-item">
+                    <span className="info-label">7-Day Outflow Velocity</span>
+                    <span className="info-value fw-600">
+                      {recentOutflow} units (~{velocity.dailyRunRate}/day)
+                    </span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Estimated Days Left</span>
+                    <span className="info-value fw-700" style={{ fontSize: '18px' }}>
+                      {velocity.daysRemaining !== null ? `${velocity.daysRemaining} days` : 'Stable / No Burn'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Right column: Movement Log history */}
         <div>
-          <div className="card" style={{ padding: '24px 0 0' }}>
-            <h3 className="card-title" style={{ padding: '0 24px 12px 24px' }}>Movement History</h3>
-            
+          <div className="card" style={{ padding: '20px 0 0' }}>
+            <h3 className="card-title card-title--bordered" style={{ padding: '0 20px 12px 20px', margin: 0 }}>
+              Stock Movement History
+            </h3>
+
             {movements.length === 0 ? (
-              <div className="empty-state" style={{ padding: '24px' }}>
-                <p>No stock movements logged.</p>
+              <div style={{ padding: '20px' }}>
+                <EmptyState
+                  title="No stock movements logged"
+                  description="All adjustments and delivery deductions for this SKU will appear here."
+                />
               </div>
             ) : (
               <div>
-                <table className="custom-table" style={{ fontSize: '13px' }}>
+                <table className="data-table">
                   <thead>
                     <tr>
-                      <th style={{ padding: '10px 16px' }}>Type</th>
-                      <th style={{ padding: '10px 16px' }}>Qty</th>
-                      <th style={{ padding: '10px 16px' }}>Reason</th>
-                      <th style={{ padding: '10px 16px' }}>Date</th>
+                      <th>Type</th>
+                      <th>Qty</th>
+                      <th>Reason</th>
+                      <th>Date</th>
                     </tr>
                   </thead>
                   <tbody>
                     {movements.map((m) => (
                       <tr key={m.id}>
-                        <td style={{ padding: '10px 16px' }}>
-                          <span className={m.type === 'IN' ? 'movement-badge-IN' : 'movement-badge-OUT'}>
-                            {m.type}
+                        <td>
+                          <span className={`badge ${m.type === 'IN' ? 'badge-success' : 'badge-danger'}`}>
+                            {m.type === 'IN' ? '▲ IN' : '▼ OUT'}
                           </span>
                         </td>
-                        <td style={{ padding: '10px 16px', fontWeight: 600 }}>{m.quantity}</td>
-                        <td style={{ padding: '10px 16px', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.reason}>
+                        <td className="fw-600">
+                          <span style={{ color: m.type === 'IN' ? 'var(--success)' : 'var(--danger)' }}>
+                            {m.type === 'IN' ? `+${m.quantity}` : `-${m.quantity}`}
+                          </span>
+                        </td>
+                        <td
+                          style={{
+                            maxWidth: '140px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={m.reason}
+                        >
                           {m.reason}
                         </td>
-                        <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>
+                        <td className="color-secondary fs-12">
                           {new Date(m.createdAt).toLocaleDateString()}
                         </td>
                       </tr>
@@ -260,27 +332,19 @@ export const ProductDetails: React.FC = () => {
                 </table>
 
                 {/* Sub pagination */}
-                <div className="pagination-footer" style={{ padding: '12px 16px', borderTop: '1px solid var(--border-color)', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
-                  <span style={{ fontSize: '12px' }}>Total: {movTotalItems} items</span>
-                  <div className="pagination-controls" style={{ gap: '4px' }}>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ padding: '4px 8px', fontSize: '11px' }}
-                      disabled={movPage === 1}
-                      onClick={() => setMovPage((p) => p - 1)}
-                    >
-                      Prev
-                    </button>
-                    <span style={{ fontSize: '12px' }}>{movPage} / {movTotalPages}</span>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ padding: '4px 8px', fontSize: '11px' }}
-                      disabled={movPage === movTotalPages}
-                      onClick={() => setMovPage((p) => p + 1)}
-                    >
-                      Next
-                    </button>
-                  </div>
+                <div
+                  className="pagination-footer"
+                  style={{
+                    padding: '12px 16px',
+                    borderTop: '1px solid var(--border-color)',
+                  }}
+                >
+                  <span className="fs-12">Total: {movTotalItems} movements</span>
+                  <Pagination
+                    currentPage={movPage}
+                    totalPages={movTotalPages}
+                    onPageChange={setMovPage}
+                  />
                 </div>
               </div>
             )}
@@ -290,11 +354,18 @@ export const ProductDetails: React.FC = () => {
 
       {/* Stock Adjustment Modal */}
       {isMovementOpen && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" role="dialog" aria-modal aria-label={`Record Stock ${movementType}`}>
           <div className="modal-dialog" style={{ maxWidth: '420px' }}>
             <div className="modal-header">
               <span className="modal-title">Record Stock {movementType}</span>
-              <span className="modal-close-btn" onClick={() => setIsMovementOpen(false)}>×</span>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setIsMovementOpen(false)}
+                aria-label="Close modal"
+              >
+                ×
+              </button>
             </div>
             <form onSubmit={handleMovementSubmit}>
               <div className="modal-body">
@@ -321,16 +392,25 @@ export const ProductDetails: React.FC = () => {
                     required
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
-                    placeholder={movementType === 'IN' ? 'e.g. Purchase order #123' : 'e.g. Defective return'}
+                    placeholder={movementType === 'IN' ? 'e.g. Purchase shipment #123' : 'e.g. Damaged / Return'}
                     disabled={submitting}
                   />
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setIsMovementOpen(false)}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setIsMovementOpen(false)}
+                >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={submitting}
+                  id="submit-movement-btn"
+                >
                   {submitting ? 'Recording...' : `Record Stock ${movementType}`}
                 </button>
               </div>
@@ -341,4 +421,5 @@ export const ProductDetails: React.FC = () => {
     </div>
   );
 };
+
 export default ProductDetails;

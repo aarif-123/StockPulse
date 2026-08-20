@@ -1,4 +1,4 @@
-FROM node:18-slim AS builder
+FROM node:18.20.4-slim AS builder
 
 WORKDIR /usr/src/app
 
@@ -16,18 +16,20 @@ RUN npx prisma generate
 RUN npm run build
 
 # Production stage
-FROM node:18-slim
+FROM node:18.20.4-slim
 
 WORKDIR /usr/src/app
 
 # Install OpenSSL and CA Certificates for Prisma runtime and database connection
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
-COPY package*.json ./
-COPY prisma ./prisma/
+COPY --chown=node:node package*.json ./
+COPY --chown=node:node prisma ./prisma/
 
-COPY --from=builder /usr/src/app/node_modules ./node_modules
-COPY --from=builder /usr/src/app/dist ./dist
+COPY --chown=node:node --from=builder /usr/src/app/node_modules ./node_modules
+COPY --chown=node:node --from=builder /usr/src/app/dist ./dist
+
+USER node
 
 EXPOSE 5000
 
