@@ -18,6 +18,7 @@ import challansRouter from './modules/challans/challan.routes';
 import dashboardRouter from './modules/dashboard/dashboard.routes';
 import reportsRouter from './modules/reports/reports.routes';
 import paymentsRouter from './modules/payments/payment.routes';
+import { bomRouter } from './modules/bom/bom.routes';
 
 const app = express();
 
@@ -123,6 +124,10 @@ app.use('/dashboard', dashboardRouter);
 
 app.use('/api/reports', reportsRouter);
 app.use('/reports', reportsRouter);
+
+app.use('/api/bom', bomRouter);
+app.use('/api/v1/bom', bomRouter);
+app.use('/bom', bomRouter);
 
 // ── Error handling (must be last) ─────────────────────────────────────────────
 app.use(notFound);

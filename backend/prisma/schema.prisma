@@ -172,6 +172,7 @@ model User {
   auditLogs            AuditLog[]
   paymentRequestsReviewed PaymentRequest[] @relation("ReviewedPayments")
   paymentRequestsSubmitted PaymentRequest[] @relation("SubmittedPayments")
+  bomBuildLogs         BomBuildLog[]
 
   @@index([email])
   @@index([status])
@@ -208,6 +209,8 @@ model Organization {
   customerLedgers CustomerLedger[]
   auditLogs       AuditLog[]
   supportSessions SupportSession[]
+  bomAssemblies   BomAssembly[]
+  bomBuildLogs    BomBuildLog[]
 
   @@index([slug])
   @@index([status])
@@ -383,6 +386,7 @@ model Product {
   stockMovements    StockMovement[]
   transactionItems  TransactionItem[]
   metrics           ProductMetrics?
+  bomComponents     BomComponent[]
 
   @@unique([organizationId, sku])
   @@index([organizationId, category])
@@ -631,4 +635,68 @@ model SupportSession {
   @@index([targetUserId])
   @@index([status])
   @@map("support_sessions")
+}
+
+// ── Bill of Materials (BOM) & Production Assemblies ────────────────────────────
+
+/// Bill of Materials (BOM) Assembly Recipe.
+model BomAssembly {
+  id             String         @id @default(cuid())
+  organizationId String
+  name           String
+  sku            String
+  category       String         @default("Assemblies")
+  description    String?
+  sellingPrice   Decimal        @db.Decimal(12, 2)
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  // Relations
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  components     BomComponent[]
+  buildLogs      BomBuildLog[]
+
+  @@unique([organizationId, sku])
+  @@index([organizationId, isActive])
+  @@map("bom_assemblies")
+}
+
+/// Component recipe item inside a BOM Assembly.
+model BomComponent {
+  id          String      @id @default(cuid())
+  assemblyId  String
+  productId   String
+  qtyRequired Int         @default(1)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  assembly    BomAssembly @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([assemblyId, productId])
+  @@index([assemblyId])
+  @@index([productId])
+  @@map("bom_components")
+}
+
+/// Assembly Build Run Ledger.
+model BomBuildLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  assemblyId     String
+  userId         String
+  quantity       Int          @default(1)
+  notes          String?
+  createdAt      DateTime     @default(now())
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assembly       BomAssembly  @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, createdAt])
+  @@index([assemblyId])
+  @@map("bom_build_logs")
 }

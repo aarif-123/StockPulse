@@ -3,6 +3,7 @@ import { customerService } from '../services/customer.service';
 import { challanService } from '../services/challan.service';
 import { dashboardService } from '../services/dashboard.service';
 import { reportService } from '../services/report.service';
+import { bomService } from '../services/bom.service';
 import type { User, UserOrganizationSummary } from '../types';
 
 export interface CopilotCardData {
@@ -260,20 +261,29 @@ export async function executeCopilotAction(action: CopilotActionPayload): Promis
       }
 
       case 'BUILD_BOM_ASSEMBLY': {
-        const { components, bundleName, sku } = action.params;
-        // Deduct all components
-        for (const comp of components) {
+        const { assemblyId, quantity = 1, bundleName, sku, components } = action.params;
+        if (assemblyId && !assemblyId.startsWith('BOM-')) {
+          const res = await bomService.buildAssembly(assemblyId, { quantity });
+          return {
+            success: true,
+            message: `🛠️ ${res.data?.message || `Successfully assembled ${quantity}x **${bundleName || 'Assembly'}**!`}`,
+            data: res.data,
+          };
+        }
+
+        // Fallback for in-memory / non-persisted assemblies
+        for (const comp of components || []) {
           if (comp.productId) {
             await productService.createStockMovement(comp.productId, {
               type: 'OUT',
-              quantity: comp.qtyRequired,
-              reason: `BOM Assembly Production: 1x "${bundleName}" (${sku})`,
+              quantity: comp.qtyRequired * quantity,
+              reason: `BOM Assembly Production: ${quantity}x "${bundleName}" (${sku})`,
             });
           }
         }
         return {
           success: true,
-          message: `🛠️ Successfully assembled 1x **${bundleName}**! Components have been deducted from active stock.`,
+          message: `🛠️ Successfully assembled ${quantity}x **${bundleName}**! Components have been deducted from active stock.`,
           data: { bundleName, sku },
         };
       }
@@ -360,51 +370,75 @@ export async function processCopilotQuery(
     clean.includes('recipe') ||
     rawLower.includes('billof')
   ) {
-    // If user wants to build an assembly
+    // 1. Fetch real assemblies from database API & product catalog
+    const [bomRes, prodRes] = await Promise.all([
+      bomService.getAssemblies({ limit: 50 }).catch(() => ({ data: [] as any[] })),
+      productService.getProducts({ limit: 100 }).catch(() => ({ data: [] as any[] })),
+    ]);
+
+    let computedBOMs: any[] = ((bomRes.data as any[]) || []).map((a: any) => ({
+      id: a.id,
+      bundleName: a.name,
+      sku: a.sku,
+      category: a.category,
+      sellingPrice: Number(a.sellingPrice),
+      canAssembleQty: a.canAssembleQty,
+      bottleneckSku: a.bottleneckProduct?.sku,
+      bottleneckName: a.bottleneckProduct?.name,
+      components: (a.components || []).map((c: any) => ({
+        productId: c.productId,
+        productName: c.productName || 'Product',
+        productSku: c.productSku || 'SKU',
+        qtyRequired: c.qtyRequired,
+        currentStock: c.currentStock ?? 0,
+      })),
+    }));
+
+    // If database has 0 recipes yet, compute from starter definitions with live stock
+    if (computedBOMs.length === 0) {
+      const products: any[] = prodRes.data || [];
+      const prodMap = new Map<string, any>(products.map((p: any) => [p.sku, p]));
+
+      computedBOMs = BOM_BUNDLES.map((bom) => {
+        let maxCanBuild = Infinity;
+        let bottleneckSku = '';
+        let bottleneckName = '';
+
+        const detailedComponents = bom.components.map((comp) => {
+          const prod = prodMap.get(comp.productSku);
+          const onHand = prod ? Number(prod.currentStock || 0) : 0;
+          const possibleUnits = Math.floor(onHand / comp.qtyRequired);
+
+          if (possibleUnits < maxCanBuild) {
+            maxCanBuild = possibleUnits;
+            bottleneckSku = comp.productSku;
+            bottleneckName = comp.productName;
+          }
+
+          return {
+            ...comp,
+            productId: prod?.id,
+            currentStock: onHand,
+          };
+        });
+
+        return {
+          ...bom,
+          canAssembleQty: maxCanBuild === Infinity ? 0 : maxCanBuild,
+          components: detailedComponents,
+          bottleneckSku: bottleneckSku || undefined,
+          bottleneckName: bottleneckName || undefined,
+        };
+      });
+    }
+
     const isBuildAction =
       clean.includes('build') ||
       clean.includes('assemble') ||
       clean.includes('manufacture') ||
       clean.includes('create assembly');
 
-    const prodRes = await productService.getProducts({ limit: 100 }).catch(() => ({ data: [] }));
-    const products = prodRes.data || [];
-    const prodMap = new Map(products.map((p) => [p.sku, p]));
-
-    const computedBOMs = BOM_BUNDLES.map((bom) => {
-      let maxCanBuild = Infinity;
-      let bottleneckSku = '';
-      let bottleneckName = '';
-
-      const detailedComponents = bom.components.map((comp) => {
-        const prod = prodMap.get(comp.productSku);
-        const onHand = prod ? Number(prod.currentStock || 0) : 0;
-        const possibleUnits = Math.floor(onHand / comp.qtyRequired);
-
-        if (possibleUnits < maxCanBuild) {
-          maxCanBuild = possibleUnits;
-          bottleneckSku = comp.productSku;
-          bottleneckName = comp.productName;
-        }
-
-        return {
-          ...comp,
-          productId: prod?.id,
-          currentStock: onHand,
-        };
-      });
-
-      return {
-        ...bom,
-        canAssembleQty: maxCanBuild === Infinity ? 0 : maxCanBuild,
-        components: detailedComponents,
-        bottleneckSku: bottleneckSku || undefined,
-        bottleneckName: bottleneckName || undefined,
-      };
-    });
-
-    if (isBuildAction) {
-      // Find matching BOM
+    if (isBuildAction && computedBOMs.length > 0) {
       const targetBOM =
         computedBOMs.find(
           (b) =>
@@ -435,12 +469,14 @@ export async function processCopilotQuery(
         summaryDetails: [
           { label: 'Assembly Recipe', value: `${targetBOM.bundleName} (${targetBOM.sku})`, highlight: true },
           { label: 'Selling Price', value: `₹${targetBOM.sellingPrice.toLocaleString('en-IN')}`, color: 'var(--success)' },
-          { label: 'Components Consumed', value: `${targetBOM.components.map((c) => `${c.qtyRequired}x ${c.productName}`).join(' + ')}` },
+          { label: 'Components Consumed', value: `${targetBOM.components.map((c: any) => `${c.qtyRequired}x ${c.productName}`).join(' + ')}` },
           { label: 'Remaining Capacity', value: `${targetBOM.canAssembleQty - 1} units after build` },
         ],
         params: {
+          assemblyId: targetBOM.id,
           bundleName: targetBOM.bundleName,
           sku: targetBOM.sku,
+          quantity: 1,
           components: targetBOM.components,
         },
         status: 'PENDING',
