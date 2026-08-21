@@ -17,6 +17,7 @@ import {
   IconCheck,
   IconShield,
   IconAlertTriangle,
+  IconSparkles,
 } from '../common/Icons';
 
 interface ChatMessage {
@@ -37,6 +38,210 @@ export const AiAssistantChatbot: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+
+  // Floatable & Draggable Trigger Button State
+  const TRIGGER_WIDTH = 150;
+  const TRIGGER_HEIGHT = 52;
+  const [btnPos, setBtnPos] = useState<{ x: number; y: number } | null>(null);
+  const [isDraggingBtn, setIsDraggingBtn] = useState(false);
+  const dragStartRef = useRef<{ startX: number; startY: number; initX: number; initY: number; hasMoved: boolean }>({
+    startX: 0,
+    startY: 0,
+    initX: 0,
+    initY: 0,
+    hasMoved: false,
+  });
+
+  // Floatable & Draggable Window State
+  const [windowPos, setWindowPos] = useState<{ x: number; y: number } | null>(null);
+  const [isDraggingWindow, setIsDraggingWindow] = useState(false);
+  const windowDragStartRef = useRef<{ startX: number; startY: number; initX: number; initY: number; hasMoved: boolean }>({
+    startX: 0,
+    startY: 0,
+    initX: 0,
+    initY: 0,
+    hasMoved: false,
+  });
+
+  // Restore or initialize button position
+  useEffect(() => {
+    const width = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    const height = typeof window !== 'undefined' ? window.innerHeight : 800;
+
+    try {
+      const saved = localStorage.getItem('stockpulse_copilot_float_pos');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+          const clampedX = Math.max(16, Math.min(width - TRIGGER_WIDTH - 16, parsed.x));
+          const clampedY = Math.max(16, Math.min(height - TRIGGER_HEIGHT - 16, parsed.y));
+          setBtnPos({ x: clampedX, y: clampedY });
+          return;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    setBtnPos({
+      x: Math.max(16, width - TRIGGER_WIDTH - 24),
+      y: Math.max(16, height - TRIGGER_HEIGHT - 24),
+    });
+  }, []);
+
+  // Handle window resizing to keep coordinates inside viewport boundaries
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      setBtnPos((prev) => {
+        if (!prev) return prev;
+        return {
+          x: Math.max(16, Math.min(width - TRIGGER_WIDTH - 16, prev.x)),
+          y: Math.max(16, Math.min(height - TRIGGER_HEIGHT - 16, prev.y)),
+        };
+      });
+
+      setWindowPos((prev) => {
+        if (!prev) return prev;
+        const winWidth = isExpanded ? 540 : 440;
+        const winHeight = isExpanded ? 720 : 620;
+        return {
+          x: Math.max(16, Math.min(width - winWidth - 16, prev.x)),
+          y: Math.max(16, Math.min(height - winHeight - 16, prev.y)),
+        };
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isExpanded]);
+
+  // Pointer drag handlers for Floating Action Button
+  const handlePointerDownBtn = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return;
+    const target = e.currentTarget;
+    try {
+      target.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+
+    const currentX = btnPos?.x ?? Math.max(16, window.innerWidth - TRIGGER_WIDTH - 24);
+    const currentY = btnPos?.y ?? Math.max(16, window.innerHeight - TRIGGER_HEIGHT - 24);
+
+    dragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initX: currentX,
+      initY: currentY,
+      hasMoved: false,
+    };
+    setIsDraggingBtn(true);
+  };
+
+  const handlePointerMoveBtn = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!isDraggingBtn) return;
+    const deltaX = e.clientX - dragStartRef.current.startX;
+    const deltaY = e.clientY - dragStartRef.current.startY;
+
+    if (Math.hypot(deltaX, deltaY) > 5) {
+      dragStartRef.current.hasMoved = true;
+    }
+
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const newX = Math.max(16, Math.min(width - TRIGGER_WIDTH - 16, dragStartRef.current.initX + deltaX));
+    const newY = Math.max(16, Math.min(height - TRIGGER_HEIGHT - 16, dragStartRef.current.initY + deltaY));
+
+    setBtnPos({ x: newX, y: newY });
+  };
+
+  const handlePointerUpBtn = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!isDraggingBtn) return;
+    setIsDraggingBtn(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+
+    if (dragStartRef.current.hasMoved) {
+      if (btnPos) {
+        localStorage.setItem('stockpulse_copilot_float_pos', JSON.stringify(btnPos));
+      }
+    } else {
+      setIsOpen(true);
+    }
+  };
+
+  const handleResetButtonPos = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const defaultPos = {
+      x: Math.max(16, window.innerWidth - TRIGGER_WIDTH - 24),
+      y: Math.max(16, window.innerHeight - TRIGGER_HEIGHT - 24),
+    };
+    setBtnPos(defaultPos);
+    localStorage.setItem('stockpulse_copilot_float_pos', JSON.stringify(defaultPos));
+  };
+
+  // Pointer drag handlers for Floating Chatbot Window Header
+  const handlePointerDownHeader = (e: React.PointerEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    if (e.button !== 0) return;
+
+    const target = e.currentTarget;
+    try {
+      target.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+
+    const winWidth = isExpanded ? 540 : 440;
+    const winHeight = isExpanded ? 720 : 620;
+    const currentX = windowPos?.x ?? Math.max(16, window.innerWidth - winWidth - 24);
+    const currentY = windowPos?.y ?? Math.max(16, window.innerHeight - winHeight - 24);
+
+    windowDragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initX: currentX,
+      initY: currentY,
+      hasMoved: false,
+    };
+    setIsDraggingWindow(true);
+  };
+
+  const handlePointerMoveHeader = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingWindow) return;
+    const deltaX = e.clientX - windowDragStartRef.current.startX;
+    const deltaY = e.clientY - windowDragStartRef.current.startY;
+
+    if (Math.hypot(deltaX, deltaY) > 5) {
+      windowDragStartRef.current.hasMoved = true;
+    }
+
+    const winWidth = isExpanded ? 540 : 440;
+    const winHeight = isExpanded ? 720 : 620;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    const newX = Math.max(16, Math.min(width - winWidth - 16, windowDragStartRef.current.initX + deltaX));
+    const newY = Math.max(16, Math.min(height - winHeight - 16, windowDragStartRef.current.initY + deltaY));
+
+    setWindowPos({ x: newX, y: newY });
+  };
+
+  const handlePointerUpHeader = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingWindow) return;
+    setIsDraggingWindow(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+  };
 
   const initialWelcomeMsg: ChatMessage = {
     id: 'welcome-1',
@@ -94,7 +299,7 @@ export const AiAssistantChatbot: React.FC = () => {
           suggestedPrompts: response.suggestedPrompts,
         },
       ]);
-    } catch (err) {
+    } catch {
       setMessages((prev) => [
         ...prev,
         {
@@ -210,7 +415,7 @@ export const AiAssistantChatbot: React.FC = () => {
             /^\d+\.\s/.test(trimmed);
 
           const cleanLine = isBullet
-            ? trimmed.replace(/^[•*\-]\s*|^\d+\.\s*/, '')
+            ? trimmed.replace(/^[•*-]\s*|^\d+\.\s*/, '')
             : trimmed;
 
           // Strip wrapping quotes and format bold/italic/key highlights
@@ -287,105 +492,145 @@ export const AiAssistantChatbot: React.FC = () => {
 
   return (
     <>
-      {/* Floating Action Trigger Button (Bottom Right - Circular Shape: Dark Obsidian & Glowing Cyan) */}
+      {/* Floatable Action Trigger Button */}
       {!isOpen && (
         <button
-          onClick={() => setIsOpen(true)}
-          className="no-print"
+          type="button"
+          className={`no-print dost-float-trigger ${isDraggingBtn ? 'is-dragging' : 'is-idle'}`}
+          onPointerDown={handlePointerDownBtn}
+          onPointerMove={handlePointerMoveBtn}
+          onPointerUp={handlePointerUpBtn}
+          onPointerCancel={handlePointerUpBtn}
+          onDoubleClick={handleResetButtonPos}
           style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            zIndex: 999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '58px',
-            height: '58px',
-            backgroundColor: 'rgba(24, 24, 27, 0.94)',
-            backdropFilter: 'blur(12px)',
-            color: '#38bdf8',
-            border: '1.5px solid rgba(56, 189, 248, 0.65)',
-            borderRadius: '50%',
-            boxShadow:
-              '0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.35), inset 0 0 10px rgba(56, 189, 248, 0.12)',
-            cursor: 'pointer',
-            fontWeight: 800,
-            fontSize: '13.5px',
-            letterSpacing: '0.05em',
-            transition: 'all 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
-            textShadow: '0 0 8px rgba(56, 189, 248, 0.5)',
+            left: btnPos ? `${btnPos.x}px` : undefined,
+            top: btnPos ? `${btnPos.y}px` : undefined,
+            right: !btnPos ? '24px' : undefined,
+            bottom: !btnPos ? '24px' : undefined,
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-3px) scale(1.08)';
-            e.currentTarget.style.borderColor = '#38bdf8';
-            e.currentTarget.style.boxShadow =
-              '0 14px 36px rgba(0, 0, 0, 0.7), 0 0 28px rgba(56, 189, 248, 0.6), inset 0 0 14px rgba(56, 189, 248, 0.25)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0) scale(1)';
-            e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.65)';
-            e.currentTarget.style.boxShadow =
-              '0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.35), inset 0 0 10px rgba(56, 189, 248, 0.12)';
-          }}
-          title="Open DOST AI"
+          title="DOST AI Assistant • Drag anywhere to reposition • Click to chat • Double-click to reset"
+          aria-label="Open DOST AI Business Companion"
         >
-          <span style={{ fontWeight: 800, fontSize: '13.5px', letterSpacing: '0.05em' }}>DOST</span>
+          {/* Visual Drag Grip Handle */}
+          <div className="dost-float-grip" aria-hidden="true" title="Drag to reposition">
+            <div className="dost-float-grip-row">
+              <div className="dost-float-grip-dot" />
+              <div className="dost-float-grip-dot" />
+            </div>
+            <div className="dost-float-grip-row">
+              <div className="dost-float-grip-dot" />
+              <div className="dost-float-grip-dot" />
+            </div>
+            <div className="dost-float-grip-row">
+              <div className="dost-float-grip-dot" />
+              <div className="dost-float-grip-dot" />
+            </div>
+          </div>
+
+          {/* AI Orb with Animated Beacon Pulse */}
+          <div className="dost-float-orb">
+            <div className="dost-float-pulse-ring" />
+            <IconSparkles size={18} />
+          </div>
+
+          {/* Label and Status */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.15 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span
+                style={{
+                  fontWeight: 900,
+                  fontSize: '13.5px',
+                  letterSpacing: '0.06em',
+                  color: '#ffffff',
+                  textShadow: '0 0 10px rgba(56, 189, 248, 0.6)',
+                }}
+              >
+                DOST
+              </span>
+              <span
+                style={{
+                  fontSize: '9.5px',
+                  fontWeight: 800,
+                  backgroundColor: 'rgba(56, 189, 248, 0.2)',
+                  color: '#38bdf8',
+                  padding: '1px 5px',
+                  borderRadius: '4px',
+                  border: '1px solid rgba(56, 189, 248, 0.4)',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                AI
+              </span>
+            </div>
+            <span
+              style={{
+                fontSize: '10px',
+                color: '#4ade80',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+              }}
+            >
+              <span
+                style={{
+                  width: '5px',
+                  height: '5px',
+                  borderRadius: '50%',
+                  backgroundColor: '#4ade80',
+                  boxShadow: '0 0 6px #4ade80',
+                }}
+              />
+              Online
+            </span>
+          </div>
         </button>
       )}
 
       {/* Floating Chatbot Window */}
       {isOpen && (
         <div
-          className="no-print"
+          className="no-print dost-float-window"
           style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
+            left: windowPos ? `${windowPos.x}px` : undefined,
+            top: windowPos ? `${windowPos.y}px` : undefined,
+            right: !windowPos ? '24px' : undefined,
+            bottom: !windowPos ? '24px' : undefined,
             width: isExpanded ? '540px' : '440px',
             maxWidth: 'calc(100vw - 32px)',
             height: isExpanded ? '720px' : '620px',
             maxHeight: 'calc(100vh - 48px)',
-            backgroundColor: 'var(--bg-secondary)',
-            border: '1px solid var(--border-color)',
-            borderRadius: 'var(--radius-lg)',
-            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(124, 58, 237, 0.25)',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            zIndex: 1000,
-            transition: 'width 0.25s ease, height 0.25s ease',
-            animation: 'slideUpFade 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            transition: isDraggingWindow ? 'none' : 'width 0.25s ease, height 0.25s ease',
+            animation: !windowPos ? 'slideUpFade 0.2s cubic-bezier(0.4, 0, 0.2, 1)' : undefined,
           }}
         >
-          {/* Header */}
+          {/* Header (Draggable) */}
           <div
-            style={{
-              padding: '12px 16px',
-              backgroundColor: 'var(--bg-tertiary)',
-              borderBottom: '1px solid var(--border-color)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
+            className={`dost-float-header ${isDraggingWindow ? 'is-window-dragging' : ''}`}
+            onPointerDown={handlePointerDownHeader}
+            onPointerMove={handlePointerMoveHeader}
+            onPointerUp={handlePointerUpHeader}
+            onPointerCancel={handlePointerUpHeader}
+            onDoubleClick={() => setWindowPos(null)}
+            title="Drag header to move chat window • Double-click to reset position"
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', pointerEvents: 'none' }}>
               <div
                 style={{
                   width: '34px',
                   height: '34px',
                   borderRadius: '50%',
-                  background: 'linear-gradient(135deg, var(--primary), #a78bfa)',
+                  background: 'linear-gradient(135deg, #ffffff, #a3a3a3)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#fff',
+                  color: '#000000',
                   fontWeight: 800,
                   fontSize: '15px',
-                  boxShadow: '0 2px 8px rgba(124, 58, 237, 0.3)',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
                 }}
               >
-                ✨
+                <IconSparkles size={18} />
               </div>
               <div>
                 <div
@@ -437,6 +682,19 @@ export const AiAssistantChatbot: React.FC = () => {
 
             <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
               <button
+                type="button"
+                onClick={() => setWindowPos(null)}
+                className="btn-icon"
+                style={{ color: 'var(--text-secondary)', padding: '6px' }}
+                title="Reset window position"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+              </button>
+              <button
+                type="button"
                 onClick={() => setIsExpanded((prev) => !prev)}
                 className="btn-icon"
                 style={{ color: 'var(--text-secondary)', padding: '6px' }}
@@ -445,6 +703,7 @@ export const AiAssistantChatbot: React.FC = () => {
                 <IconBarChart size={15} />
               </button>
               <button
+                type="button"
                 onClick={handleClearChat}
                 className="btn-icon"
                 style={{ color: 'var(--text-secondary)', padding: '6px' }}
@@ -453,6 +712,7 @@ export const AiAssistantChatbot: React.FC = () => {
                 <IconTrash size={15} />
               </button>
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
                 className="btn-icon"
                 style={{ color: 'var(--text-secondary)', padding: '6px' }}
@@ -461,6 +721,7 @@ export const AiAssistantChatbot: React.FC = () => {
                 <IconMinimize size={15} />
               </button>
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
                 className="btn-icon"
                 style={{ color: 'var(--text-secondary)', padding: '6px' }}
@@ -544,12 +805,15 @@ export const AiAssistantChatbot: React.FC = () => {
                     style={{
                       padding: '10px 14px',
                       borderRadius: isAi ? '4px 14px 14px 14px' : '14px 14px 4px 14px',
-                      backgroundColor: isAi ? 'var(--bg-tertiary)' : 'var(--primary)',
-                      color: isAi ? 'var(--text-primary)' : '#ffffff',
+                      backgroundColor: isAi ? 'var(--bg-tertiary)' : '#ffffff',
+                      color: isAi ? 'var(--text-primary)' : '#09090b',
+                      fontWeight: isAi ? 400 : 600,
                       border: isAi ? '1px solid var(--border-color)' : 'none',
                       fontSize: '13px',
                       lineHeight: '1.5',
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                      boxShadow: isAi
+                        ? '0 2px 8px rgba(0, 0, 0, 0.1)'
+                        : '0 2px 12px rgba(255, 255, 255, 0.15)',
                       width: '100%',
                     }}
                   >
@@ -612,13 +876,13 @@ export const AiAssistantChatbot: React.FC = () => {
                               letterSpacing: '0.04em',
                               padding: '2px 8px',
                               borderRadius: '9999px',
-                              color: m.action.isSerious ? '#ef4444' : '#8b5cf6',
+                              color: m.action.isSerious ? '#ef4444' : '#d4d4d4',
                               backgroundColor: m.action.isSerious
                                 ? 'rgba(239, 68, 68, 0.18)'
-                                : 'rgba(139, 92, 246, 0.18)',
+                                : 'rgba(212, 212, 212, 0.1)',
                               border: m.action.isSerious
                                 ? '1px solid rgba(239, 68, 68, 0.35)'
-                                : '1px solid rgba(139, 92, 246, 0.35)',
+                                : '1px solid rgba(255, 255, 255, 0.2)',
                             }}
                           >
                             {m.action.isSerious ? '🚨 SERIOUS ACTION' : '🛡️ PERMISSION REQUIRED'}
@@ -1920,11 +2184,11 @@ export const AiAssistantChatbot: React.FC = () => {
                                   padding: '1px 6px',
                                   borderRadius: '4px',
                                   color:
-                                    cust.status === 'ACTIVE' ? 'var(--success)' : '#a855f7',
+                                    cust.status === 'ACTIVE' ? 'var(--success)' : '#a3a3a3',
                                   backgroundColor:
                                     cust.status === 'ACTIVE'
                                       ? 'rgba(34, 197, 94, 0.15)'
-                                      : 'rgba(168, 85, 247, 0.15)',
+                                      : 'rgba(163, 163, 163, 0.12)',
                                 }}
                               >
                                 {cust.status}

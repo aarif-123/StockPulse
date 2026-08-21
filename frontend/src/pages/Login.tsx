@@ -26,23 +26,29 @@ export const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const navigateToDestination = (userObj?: { isSuperAdmin?: boolean }) => {
+    const pendingPlanId = sessionStorage.getItem('pendingPlanId');
+    const pendingBillingCycle = sessionStorage.getItem('pendingBillingCycle') || 'YEARLY';
+    if (pendingPlanId) {
+      sessionStorage.removeItem('pendingPlanId');
+      sessionStorage.removeItem('pendingBillingCycle');
+      navigate(`/org/billing?planId=${pendingPlanId}&billingCycle=${pendingBillingCycle}`, { replace: true });
+    } else if (userObj?.isSuperAdmin) {
+      navigate('/platform', { replace: true });
+    } else {
+      navigate('/dashboard', { replace: true });
+    }
+  };
+
   useEffect(() => {
     setIsRegister(searchParams.get('register') === 'true');
   }, [searchParams]);
 
   useEffect(() => {
-    if (isAuthenticated && !loading) {
-      const pendingPlanId = sessionStorage.getItem('pendingPlanId');
-      const pendingBillingCycle = sessionStorage.getItem('pendingBillingCycle') || 'YEARLY';
-      if (pendingPlanId) {
-        sessionStorage.removeItem('pendingPlanId');
-        sessionStorage.removeItem('pendingBillingCycle');
-        navigate(`/org/billing?planId=${pendingPlanId}&billingCycle=${pendingBillingCycle}`, { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
+    if (isAuthenticated) {
+      navigateToDestination();
     }
-  }, [isAuthenticated, navigate, loading]);
+  }, [isAuthenticated, navigate]);
 
   const handleBusinessNameChange = (val: string) => {
     setBusinessName(val);
@@ -90,6 +96,8 @@ export const Login: React.FC = () => {
             status: 'ACTIVE',
           },
         ]);
+        setLoading(false);
+        navigateToDestination(response.user);
       } catch (err) {
         setError(handleApiError(err));
         setLoading(false);
@@ -104,6 +112,8 @@ export const Login: React.FC = () => {
       try {
         const response = await authService.login(email.trim(), password);
         login(response.token, response.user, response.organizations);
+        setLoading(false);
+        navigateToDestination(response.user);
       } catch (err) {
         setError(handleApiError(err));
         setLoading(false);

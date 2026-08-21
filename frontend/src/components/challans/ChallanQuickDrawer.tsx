@@ -6,6 +6,7 @@ import type { Challan } from '../../types';
 import { StatusBadge } from '../common/StatusBadge';
 import { LoadingSkeleton } from '../common/LoadingSkeleton';
 import { computeGstBreakdown } from '../../utils/taxEngine';
+import { useAuth } from '../../hooks/useAuth';
 import {
   IconX, IconPrinter, IconCheck, IconAlertTriangle,
   IconCopy,
@@ -25,14 +26,20 @@ export const ChallanQuickDrawer: React.FC<ChallanQuickDrawerProps> = ({
   isOpen,
   onClose,
   onStatusChanged,
-  canModify = false,
+  canModify: _canModify = false,
   onToast,
 }) => {
   const navigate = useNavigate();
+  const { hasRole, user, activeOrg } = useAuth();
   const [challan, setChallan] = useState<Challan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  const currentRole = activeOrg?.role || user?.role || 'SALES';
+  const isWarehouse = currentRole === 'WAREHOUSE';
+  const canConfirm = hasRole(['ORG_ADMIN', 'ADMIN', 'SALES', 'WAREHOUSE']);
+  const canCancel = hasRole(['ORG_ADMIN', 'ADMIN', 'SALES']);
 
   const fetchDetails = useCallback(async (id: string) => {
     setLoading(true);
@@ -246,50 +253,54 @@ export const ChallanQuickDrawer: React.FC<ChallanQuickDrawerProps> = ({
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div className="fw-700 fs-13">{item.quantity} units</div>
-                        <div className="fs-11 color-secondary">₹{Number(item.unitPrice).toFixed(2)} / unit</div>
+                        {!isWarehouse && (
+                          <div className="fs-11 color-secondary">₹{Number(item.unitPrice).toFixed(2)} / unit</div>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
 
                 {/* Financial Summary */}
-                <div
-                  style={{
-                    borderTop: '1px solid var(--border-color)',
-                    marginTop: '16px',
-                    paddingTop: '12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px',
-                    fontSize: '13px',
-                  }}
-                >
-                  <div className="flex-between color-secondary">
-                    <span>Taxable Subtotal:</span>
-                    <span>₹{taxDetails.subtotal.toFixed(2)}</span>
-                  </div>
-                  {taxDetails.isIntraState ? (
-                    <>
-                      <div className="flex-between color-secondary fs-12">
-                        <span>CGST ({(taxDetails.cgstRate * 100).toFixed(1)}%):</span>
-                        <span>+₹{taxDetails.cgstAmount.toFixed(2)}</span>
-                      </div>
-                      <div className="flex-between color-secondary fs-12">
-                        <span>SGST ({(taxDetails.sgstRate * 100).toFixed(1)}%):</span>
-                        <span>+₹{taxDetails.sgstAmount.toFixed(2)}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex-between color-secondary fs-12">
-                      <span>IGST ({(taxDetails.igstRate * 100).toFixed(1)}%):</span>
-                      <span>+₹{taxDetails.igstAmount.toFixed(2)}</span>
+                {!isWarehouse && (
+                  <div
+                    style={{
+                      borderTop: '1px solid var(--border-color)',
+                      marginTop: '16px',
+                      paddingTop: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <div className="flex-between color-secondary">
+                      <span>Taxable Subtotal:</span>
+                      <span>₹{taxDetails.subtotal.toFixed(2)}</span>
                     </div>
-                  )}
-                  <div className="flex-between fw-700 fs-14 color-primary" style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '6px' }}>
-                    <span>Estimated Total Value:</span>
-                    <span>₹{taxDetails.grandTotal.toFixed(2)}</span>
+                    {taxDetails.isIntraState ? (
+                      <>
+                        <div className="flex-between color-secondary fs-12">
+                          <span>CGST ({(taxDetails.cgstRate * 100).toFixed(1)}%):</span>
+                          <span>+₹{taxDetails.cgstAmount.toFixed(2)}</span>
+                        </div>
+                        <div className="flex-between color-secondary fs-12">
+                          <span>SGST ({(taxDetails.sgstRate * 100).toFixed(1)}%):</span>
+                          <span>+₹{taxDetails.sgstAmount.toFixed(2)}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex-between color-secondary fs-12">
+                        <span>IGST ({(taxDetails.igstRate * 100).toFixed(1)}%):</span>
+                        <span>+₹{taxDetails.igstAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex-between fw-700 fs-14 color-primary" style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '6px' }}>
+                      <span>Estimated Total Value:</span>
+                      <span>₹{taxDetails.grandTotal.toFixed(2)}</span>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </>
           )}
@@ -316,25 +327,29 @@ export const ChallanQuickDrawer: React.FC<ChallanQuickDrawerProps> = ({
                 <IconPrinter size={14} /> Print
               </button>
 
-              {challan.status === 'DRAFT' && canModify && (
+              {challan.status === 'DRAFT' && (
                 <>
-                  <button
-                    type="button"
-                    className="btn btn-danger btn-sm"
-                    onClick={handleCancel}
-                    disabled={actionLoading}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-success btn-sm"
-                    onClick={handleConfirm}
-                    disabled={actionLoading}
-                  >
-                    <IconCheck size={14} />
-                    {actionLoading ? 'Confirming...' : 'Confirm Delivery'}
-                  </button>
+                  {canCancel && (
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      onClick={handleCancel}
+                      disabled={actionLoading}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  {canConfirm && (
+                    <button
+                      type="button"
+                      className="btn btn-success btn-sm"
+                      onClick={handleConfirm}
+                      disabled={actionLoading}
+                    >
+                      <IconCheck size={14} />
+                      {actionLoading ? 'Confirming...' : 'Confirm Delivery'}
+                    </button>
+                  )}
                 </>
               )}
             </>

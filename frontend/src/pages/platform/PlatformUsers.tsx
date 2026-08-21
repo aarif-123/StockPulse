@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api, handleApiError } from '../../services/api';
-import type { Pagination, UserStatus } from '../../types';
+import type { Pagination as PaginationType, UserStatus } from '../../types';
 import { OrgInspectorModal } from '../../components/platform/OrgInspectorModal';
+import { Pagination } from '../../components/common/Pagination';
 
 interface GlobalUserItem {
   id: string;
@@ -31,7 +32,11 @@ interface OrgOption {
 
 export const PlatformUsers: React.FC = () => {
   const [users, setUsers] = useState<GlobalUserItem[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 10, total: 0, totalPages: 1 });
+  const [pagination, setPagination] = useState<PaginationType>({ page: 1, limit: 10, total: 0, totalPages: 1 });
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const saved = localStorage.getItem('stockpulse_platform_users_page_size');
+    return saved ? Math.min(Math.max(parseInt(saved, 10) || 10, 5), 100) : 10;
+  });
   const [search, setSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -52,13 +57,13 @@ export const PlatformUsers: React.FC = () => {
     organizationId: '',
   });
 
-  const fetchUsers = useCallback(async (page = 1) => {
+  const fetchUsers = useCallback(async (page = 1, currentLimit = pageSize) => {
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams();
       params.append('page', page.toString());
-      params.append('limit', '10');
+      params.append('limit', currentLimit.toString());
       params.append('role', 'ORG_ADMIN'); // Always force role to ORG_ADMIN
       if (search) params.append('search', search);
       if (statusFilter) params.append('status', statusFilter);
@@ -75,7 +80,13 @@ export const PlatformUsers: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter]);
+  }, [search, statusFilter, pageSize]);
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    localStorage.setItem('stockpulse_platform_users_page_size', String(newSize));
+    void fetchUsers(1, newSize);
+  };
 
   // Load organizations list for creation dropdown
   const fetchOrganizations = useCallback(async () => {
@@ -375,43 +386,21 @@ export const PlatformUsers: React.FC = () => {
         )}
 
         {/* Pagination Footer */}
-        {pagination.totalPages > 1 && (
-          <div style={{ padding: '16px', borderTop: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {!loading && pagination.total > 0 && (
+          <div className="pagination-footer">
             <span style={{ color: '#94a3b8', fontSize: '13px' }}>
-              Page {pagination.page} of {pagination.totalPages} ({pagination.total} total admins)
+              Showing {Math.min((pagination.page - 1) * pageSize + 1, pagination.total)}–
+              {Math.min(pagination.page * pageSize, pagination.total)} of {pagination.total} administrators
             </span>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                disabled={pagination.page <= 1}
-                onClick={() => fetchUsers(pagination.page - 1)}
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: '#0f172a',
-                  border: '1px solid #334155',
-                  color: pagination.page <= 1 ? '#64748b' : '#f8fafc',
-                  borderRadius: '6px',
-                  cursor: pagination.page <= 1 ? 'not-allowed' : 'pointer',
-                  fontSize: '13px',
-                }}
-              >
-                Previous
-              </button>
-              <button
-                disabled={pagination.page >= pagination.totalPages}
-                onClick={() => fetchUsers(pagination.page + 1)}
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: '#0f172a',
-                  border: '1px solid #334155',
-                  color: pagination.page >= pagination.totalPages ? '#64748b' : '#f8fafc',
-                  borderRadius: '6px',
-                  cursor: pagination.page >= pagination.totalPages ? 'not-allowed' : 'pointer',
-                  fontSize: '13px',
-                }}
-              >
-                Next
-              </button>
-            </div>
+            <Pagination
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              onPageChange={(p) => fetchUsers(p, pageSize)}
+              pageSize={pageSize}
+              onPageSizeChange={handlePageSizeChange}
+              pageSizeOptions={[10, 25, 30, 50, 100]}
+              totalItems={pagination.total}
+            />
           </div>
         )}
       </div>

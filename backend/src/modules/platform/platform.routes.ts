@@ -19,6 +19,8 @@ router.post('/organizations', platformController.createOrganization);
 router.patch('/organizations/:id', platformController.updateOrganization);
 router.put('/organizations/:id/status', platformController.updateOrganizationStatus);
 router.patch('/organizations/:id/status', platformController.updateOrganizationStatus);
+router.post('/organizations/:id/extend-trial', platformController.extendTrial);
+router.post('/organizations/:id/assign-plan', platformController.assignPlan);
 
 // Data-Driven Plans Configuration
 router.get('/plans', platformController.listPlans);

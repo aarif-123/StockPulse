@@ -22,7 +22,11 @@ export const PlatformPayments: React.FC = () => {
     try {
       const url = statusFilter ? `/platform/payments?status=${statusFilter}` : '/platform/payments';
       const res = await api.get(url);
-      setPayments(res.data.data || []);
+      const data = res.data.data || [];
+      setPayments(data);
+      if (statusFilter === 'PENDING') {
+        window.dispatchEvent(new CustomEvent('payments-updated', { detail: { count: data.length } }));
+      }
     } catch (err) {
       setError(handleApiError(err));
     } finally {
@@ -44,6 +48,7 @@ export const PlatformPayments: React.FC = () => {
       setActionSuccess(`Payment request successfully ${approve ? 'APPROVED' : 'REJECTED'}.`);
       setRejectingPaymentId(null);
       setRejectionReason('');
+      window.dispatchEvent(new CustomEvent('payments-updated'));
       void fetchPayments();
     } catch (err) {
       setError(handleApiError(err));

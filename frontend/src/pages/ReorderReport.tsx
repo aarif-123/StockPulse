@@ -31,6 +31,17 @@ export const ReorderReport: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<'ALL' | 'SHORT_ONLY'>('SHORT_ONLY');
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const saved = localStorage.getItem('stockpulse_reorder_page_size');
+    return saved ? Math.min(Math.max(parseInt(saved, 10) || 10, 5), 100) : 10;
+  });
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+    localStorage.setItem('stockpulse_reorder_page_size', String(newSize));
+  };
 
   // Multi-selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -91,6 +102,13 @@ export const ReorderReport: React.FC = () => {
     }
     return reorderList;
   }, [reorderList, filterMode]);
+
+  const totalItems = displayedList.length;
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const paginatedList = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return displayedList.slice(start, start + pageSize);
+  }, [displayedList, page, pageSize]);
 
   // Summary KPI Metrics
   const summary = useMemo(() => {
@@ -358,9 +376,19 @@ export const ReorderReport: React.FC = () => {
         <div className="table-card">
           <Table
             columns={columns}
-            data={displayedList}
+            data={paginatedList}
             keyExtractor={(i) => i.id}
             emptyMessage="All items are currently at healthy inventory levels."
+            pagination={{
+              currentPage: page,
+              totalPages,
+              onPageChange: setPage,
+              pageSize,
+              onPageSizeChange: handlePageSizeChange,
+              pageSizeOptions: [10, 25, 30, 50, 100],
+              totalItems,
+              itemName: 'SKUs',
+            }}
           />
         </div>
       )}

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../config/database';
 import { AppError } from '../../middleware/error-handler';
 import {
   CreateBomAssemblyInput,
@@ -6,8 +6,6 @@ import {
   BuildBomAssemblyInput,
   QueryBomAssemblyInput,
 } from './bom.schema';
-
-const prisma = new PrismaClient();
 
 export const bomService = {
   /**
@@ -333,7 +331,7 @@ export const bomService = {
           data: {
             organizationId,
             productId: comp.productId,
-            userId,
+            createdBy: userId,
             quantity: totalNeeded,
             type: 'OUT',
             reason: `BOM Production Assembly: ${quantity}x "${assembly.name}" (${assembly.sku})`,

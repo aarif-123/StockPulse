@@ -56,11 +56,11 @@ export const authService = {
       throw AppError.unauthorized('Invalid email or password.');
     }
 
-    // Update lastLoginAt
-    await prisma.user.update({
+    // Non-blocking background lastLogin update and audit log
+    prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
-    });
+    }).catch((err) => console.error('Background lastLogin update error:', err));
 
     const token = signToken({
       userId: user.id,
@@ -86,7 +86,7 @@ export const authService = {
       };
     });
 
-    await auditService.log({
+    auditService.log({
       scope: user.isSuperAdmin ? 'PLATFORM' : 'ORGANIZATION',
       organizationId: memberships[0]?.organizationId,
       actorUserId: user.id,
@@ -95,7 +95,7 @@ export const authService = {
       resourceId: user.id,
       ipAddress,
       userAgent,
-    });
+    }).catch((err) => console.error('Background audit log error:', err));
 
     return {
       token,
@@ -118,9 +118,13 @@ export const authService = {
     const email = input.email.toLowerCase().trim();
     const slug = input.organizationSlug.toLowerCase().trim();
 
-    const [existingUser, existingSlug] = await Promise.all([
+    // Parallelize validation checks, bcrypt hash, and plan fetch
+    const [existingUser, existingSlug, defaultPlan, passwordHash] = await Promise.all([
       prisma.user.findUnique({ where: { email } }),
       prisma.organization.findUnique({ where: { slug } }),
+      prisma.plan.findFirst({ where: { code: 'growth_v1', isActive: true } }) ||
+        prisma.plan.findFirst({ where: { isActive: true } }),
+      bcrypt.hash(input.password, 10),
     ]);
 
     if (existingUser) {
@@ -130,16 +134,11 @@ export const authService = {
       throw AppError.conflict('An organization with this slug / URL identifier is already taken.');
     }
 
-    const defaultPlan = await prisma.plan.findFirst({
-      where: { code: 'growth_v1', isActive: true },
-    }) || await prisma.plan.findFirst({ where: { isActive: true } });
-
     if (!defaultPlan) {
       throw AppError.badRequest('No default subscription plan found.');
     }
 
     return prisma.$transaction(async (tx) => {
-      const passwordHash = await bcrypt.hash(input.password, 10);
 
       const user = await tx.user.create({
         data: {

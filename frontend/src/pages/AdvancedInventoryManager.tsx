@@ -3,6 +3,7 @@ import { productService } from '../services/product.service';
 import { reportService, type StockMovementReportItem } from '../services/report.service';
 import { handleApiError } from '../services/api';
 import type { Product } from '../types';
+import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { ToastContainer } from '../components/common/ToastContainer';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
@@ -27,11 +28,26 @@ interface AIMOptimizationItem {
 
 export const AdvancedInventoryManager: React.FC = () => {
   const { toasts, toast, removeToast } = useToast();
+  const { user, activeOrg } = useAuth();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<StockMovementReportItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const currentRole = activeOrg?.role || user?.role || 'SALES';
+  const isWarehouse = currentRole === 'WAREHOUSE';
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const saved = localStorage.getItem('stockpulse_aim_page_size');
+    return saved ? Math.min(Math.max(parseInt(saved, 10) || 10, 5), 100) : 10;
+  });
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+    localStorage.setItem('stockpulse_aim_page_size', String(newSize));
+  };
 
   // Interactive Target Buffer Slider (in days) - Default: 30 days
   const [targetBufferDays, setTargetBufferDays] = useState<number>(30);
@@ -102,18 +118,23 @@ export const AdvancedInventoryManager: React.FC = () => {
   const handleExportAIMReport = () => {
     exportToCsv(
       `aim_optimization_model_${targetBufferDays}days_${new Date().toISOString().slice(0, 10)}`,
-      aimItems.map((i) => ({
-        SKU: i.product.sku,
-        'Product Name': i.product.name,
-        Category: i.product.category,
-        'Daily Demand (Units/Day)': i.dailyDemand.toFixed(2),
-        'Current Stock (OnHand)': i.product.currentStock,
-        'Current Safety Buffer': i.currentSafetyStock,
-        [`AIM Optimized Buffer (${targetBufferDays} Days)`]: i.optimizedSafetyStock,
-        'Runway Remaining (Days)': i.runwayDays,
-        'Current Capital Tied (INR)': i.currentCapitalTied,
-        'Capital Optimization Delta (INR)': i.capitalVariance,
-      }))
+      aimItems.map((i) => {
+        const row: Record<string, string | number> = {
+          SKU: i.product.sku,
+          'Product Name': i.product.name,
+          Category: i.product.category,
+          'Daily Demand (Units/Day)': i.dailyDemand.toFixed(2),
+          'Current Stock (OnHand)': i.product.currentStock,
+          'Current Safety Buffer': i.currentSafetyStock,
+          [`AIM Optimized Buffer (${targetBufferDays} Days)`]: i.optimizedSafetyStock,
+          'Runway Remaining (Days)': i.runwayDays,
+        };
+        if (!isWarehouse) {
+          row['Current Capital Tied (INR)'] = i.currentCapitalTied;
+          row['Capital Optimization Delta (INR)'] = i.capitalVariance;
+        }
+        return row;
+      })
     );
   };
 
@@ -174,23 +195,41 @@ export const AdvancedInventoryManager: React.FC = () => {
     },
     {
       key: 'capitalVariance',
-      header: 'Capital Impact',
-      className: 'text-right',
-      render: (i) => (
-        <div className="text-mono fw-700">
-          {i.capitalVariance > 0 ? (
-            <span className="color-success">
-              +₹{i.capitalVariance.toLocaleString('en-IN', { maximumFractionDigits: 0 })} <span className="fs-10 fw-400">released</span>
-            </span>
-          ) : i.capitalVariance < 0 ? (
-            <span className="color-warning">
-              -₹{Math.abs(i.capitalVariance).toLocaleString('en-IN', { maximumFractionDigits: 0 })} <span className="fs-10 fw-400">buffer req.</span>
-            </span>
-          ) : (
-            <span className="color-tertiary">Balanced</span>
-          )}
-        </div>
-      ),
+      header: isWarehouse ? 'Safety Status' : 'Capital Impact',
+      className: isWarehouse ? 'text-center' : 'text-right',
+      render: (i) => {
+        if (isWarehouse) {
+          const isOver = i.currentSafetyStock > i.optimizedSafetyStock * 1.5;
+          const isUnder = i.product.currentStock < i.optimizedSafetyStock;
+          return (
+            <div className="fw-700">
+              {isUnder ? (
+                <span className="badge badge-danger">Under-Buffered</span>
+              ) : isOver ? (
+                <span className="badge badge-warning">Over-Buffered</span>
+              ) : (
+                <span className="badge badge-success">Balanced</span>
+              )}
+            </div>
+          );
+        }
+
+        return (
+          <div className="text-mono fw-700">
+            {i.capitalVariance > 0 ? (
+              <span className="color-success">
+                +₹{i.capitalVariance.toLocaleString('en-IN', { maximumFractionDigits: 0 })} <span className="fs-10 fw-400">released</span>
+              </span>
+            ) : i.capitalVariance < 0 ? (
+              <span className="color-warning">
+                -₹{Math.abs(i.capitalVariance).toLocaleString('en-IN', { maximumFractionDigits: 0 })} <span className="fs-10 fw-400">buffer req.</span>
+              </span>
+            ) : (
+              <span className="color-tertiary">Balanced</span>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -258,31 +297,35 @@ export const AdvancedInventoryManager: React.FC = () => {
 
       {/* AIM Summary KPI Cards */}
       <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-card__header">
-            <span className="stat-card__label">Total Capital in Inventory</span>
-            <div className="stat-card__icon stat-card__icon--blue">
-              <IconIndianRupee size={18} />
+        {!isWarehouse && (
+          <>
+            <div className="stat-card">
+              <div className="stat-card__header">
+                <span className="stat-card__label">Total Capital in Inventory</span>
+                <div className="stat-card__icon stat-card__icon--blue">
+                  <IconIndianRupee size={18} />
+                </div>
+              </div>
+              <div className="stat-card__value">
+                ₹{aimSummary.totalCapitalTied.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </div>
+              <div className="stat-card__footer">Total material asset valuation</div>
             </div>
-          </div>
-          <div className="stat-card__value">
-            ₹{aimSummary.totalCapitalTied.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-          </div>
-          <div className="stat-card__footer">Total material asset valuation</div>
-        </div>
 
-        <div className="stat-card">
-          <div className="stat-card__header">
-            <span className="stat-card__label">Capital Release Opportunity</span>
-            <div className="stat-card__icon stat-card__icon--green">
-              <IconIndianRupee size={18} />
+            <div className="stat-card">
+              <div className="stat-card__header">
+                <span className="stat-card__label">Capital Release Opportunity</span>
+                <div className="stat-card__icon stat-card__icon--green">
+                  <IconIndianRupee size={18} />
+                </div>
+              </div>
+              <div className="stat-card__value color-success">
+                ₹{aimSummary.totalPotentialRelease.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </div>
+              <div className="stat-card__footer">Unlockable from over-buffered SKUs</div>
             </div>
-          </div>
-          <div className="stat-card__value color-success">
-            ₹{aimSummary.totalPotentialRelease.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-          </div>
-          <div className="stat-card__footer">Unlockable from over-buffered SKUs</div>
-        </div>
+          </>
+        )}
 
         <div className="stat-card">
           <div className="stat-card__header">
@@ -319,9 +362,19 @@ export const AdvancedInventoryManager: React.FC = () => {
         <div className="table-card">
           <Table
             columns={columns}
-            data={aimItems}
+            data={aimItems.slice((page - 1) * pageSize, page * pageSize)}
             keyExtractor={(i) => i.product.id}
             emptyMessage="No catalog items available for AIM modeling."
+            pagination={{
+              currentPage: page,
+              totalPages: Math.ceil(aimItems.length / pageSize) || 1,
+              onPageChange: setPage,
+              pageSize,
+              onPageSizeChange: handlePageSizeChange,
+              pageSizeOptions: [10, 25, 30, 50, 100],
+              totalItems: aimItems.length,
+              itemName: 'SKUs',
+            }}
           />
         </div>
       )}

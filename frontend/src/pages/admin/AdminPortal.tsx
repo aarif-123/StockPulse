@@ -31,10 +31,16 @@ export const AdminPortal: React.FC = () => {
   const [backdoorLogs, setBackdoorLogs] = useState<BackdoorAuditLog[]>([]);
   const [activityLogs, setActivityLogs] = useState<UserActivityLog[]>([]);
 
-  // Search & Filter states for User Directory
+  // Search & Filter & Pagination states for User Directory
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<Role | ''>('');
   const [statusFilter, setStatusFilter] = useState<UserStatus | ''>('');
+  const [userPage, setUserPage] = useState(1);
+  const [userPageSize, setUserPageSize] = useState(10);
+
+  // Pagination for Backdoor logs
+  const [backdoorPage, setBackdoorPage] = useState(1);
+  const [backdoorPageSize, setBackdoorPageSize] = useState(10);
 
   // Modals state
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -499,9 +505,22 @@ export const AdminPortal: React.FC = () => {
               <div className="table-card">
                 <Table
                   columns={userColumns}
-                  data={users}
+                  data={users.slice((userPage - 1) * userPageSize, userPage * userPageSize)}
                   keyExtractor={(u) => u.id}
                   emptyMessage="No matching user accounts found."
+                  pagination={{
+                    currentPage: userPage,
+                    totalPages: Math.ceil(users.length / userPageSize) || 1,
+                    onPageChange: setUserPage,
+                    pageSize: userPageSize,
+                    onPageSizeChange: (s) => {
+                      setUserPageSize(s);
+                      setUserPage(1);
+                    },
+                    pageSizeOptions: [10, 25, 30, 50, 100],
+                    totalItems: users.length,
+                    itemName: 'users',
+                  }}
                 />
               </div>
             </div>
@@ -512,9 +531,22 @@ export const AdminPortal: React.FC = () => {
             <div className="table-card">
               <Table
                 columns={backdoorColumns}
-                data={backdoorLogs}
+                data={backdoorLogs.slice((backdoorPage - 1) * backdoorPageSize, backdoorPage * backdoorPageSize)}
                 keyExtractor={(log) => log.id}
                 emptyMessage="No backdoor entry sessions recorded."
+                pagination={{
+                  currentPage: backdoorPage,
+                  totalPages: Math.ceil(backdoorLogs.length / backdoorPageSize) || 1,
+                  onPageChange: setBackdoorPage,
+                  pageSize: backdoorPageSize,
+                  onPageSizeChange: (s) => {
+                    setBackdoorPageSize(s);
+                    setBackdoorPage(1);
+                  },
+                  pageSizeOptions: [10, 25, 30, 50, 100],
+                  totalItems: backdoorLogs.length,
+                  itemName: 'sessions',
+                }}
               />
             </div>
           )}

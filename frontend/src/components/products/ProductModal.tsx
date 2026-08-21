@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import { useAuth } from '../../hooks/useAuth';
 
 export interface ProductFormData {
   name: string;
@@ -44,6 +45,9 @@ export function ProductModal({
   submitting,
 }: ProductModalProps): React.ReactElement {
   const isAdd = mode === 'add';
+  const { user, activeOrg } = useAuth();
+  const currentRole = activeOrg?.role || user?.role || 'SALES';
+  const isWarehouse = currentRole === 'WAREHOUSE';
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal aria-label={isAdd ? 'Add New Product' : 'Edit Product Details'}>
@@ -100,20 +104,22 @@ export function ProductModal({
                   ))}
                 </select>
               </div>
-              <div className="form-group">
-                <label className="form-label">Unit Price (₹) *</label>
-                <input
-                  className="form-input"
-                  name="unitPrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  required
-                  value={formData.unitPrice}
-                  onChange={onChange}
-                  placeholder="e.g. 499.00"
-                />
-              </div>
+              {!isWarehouse && (
+                <div className="form-group">
+                  <label className="form-label">Unit Price (₹) *</label>
+                  <input
+                    className="form-input"
+                    name="unitPrice"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={formData.unitPrice}
+                    onChange={onChange}
+                    placeholder="e.g. 499.00"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="form-row">

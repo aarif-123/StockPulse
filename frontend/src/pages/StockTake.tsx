@@ -7,6 +7,7 @@ import { useToast } from '../hooks/useToast';
 import { ToastContainer } from '../components/common/ToastContainer';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { PageHeader } from '../components/common/PageHeader';
+import { Pagination } from '../components/common/Pagination';
 import {
   IconClipboardCheck, IconDownload, IconCheck, IconAlertTriangle,
   IconSearch, IconRefresh,
@@ -30,11 +31,22 @@ export const StockTake: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters
+  // Filters & Pagination
   const [selectedZone, setSelectedZone] = useState<string>('ALL');
   const [scanSkuInput, setScanSkuInput] = useState<string>('');
   const [countsMap, setCountsMap] = useState<Record<string, number | ''>>({});
   const [reconciling, setReconciling] = useState(false);
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const saved = localStorage.getItem('stockpulse_stocktake_page_size');
+    return saved ? Math.min(Math.max(parseInt(saved, 10) || 10, 5), 100) : 10;
+  });
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+    localStorage.setItem('stockpulse_stocktake_page_size', String(newSize));
+  };
 
   const fetchCatalog = useCallback(async () => {
     setLoading(true);
@@ -91,6 +103,13 @@ export const StockTake: React.FC = () => {
     if (selectedZone === 'ALL') return stockTakeRows;
     return stockTakeRows.filter((r) => r.product.warehouseLocation?.startsWith(selectedZone));
   }, [stockTakeRows, selectedZone]);
+
+  const totalItems = filteredRows.length;
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const paginatedRows = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, page, pageSize]);
 
   const auditSummary = useMemo(() => {
     const itemsWithVariance = stockTakeRows.filter((r) => r.varianceQty !== 0);
@@ -332,7 +351,7 @@ export const StockTake: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredRows.map((r) => (
+                {paginatedRows.map((r) => (
                   <tr key={r.product.id} className={r.varianceQty !== 0 ? 'bg-warning-subtle' : ''}>
                     <td>
                       <div className="fw-700 color-primary">{r.product.name}</div>
@@ -381,6 +400,24 @@ export const StockTake: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {!loading && totalItems > 0 && (
+            <div className="pagination-footer">
+              <span>
+                Showing {Math.min((page - 1) * pageSize + 1, totalItems)}–
+                {Math.min(page * pageSize, totalItems)} of {totalItems} items
+              </span>
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                pageSize={pageSize}
+                onPageSizeChange={handlePageSizeChange}
+                pageSizeOptions={[10, 25, 30, 50, 100]}
+                totalItems={totalItems}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

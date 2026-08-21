@@ -27,10 +27,12 @@ const CATEGORIES = [
 ];
 
 export const Products: React.FC = () => {
-  const { hasRole } = useAuth();
+  const { hasRole, user, activeOrg } = useAuth();
   const navigate = useNavigate();
   const { toasts, toast, removeToast } = useToast();
   const canEdit = hasRole(['ORG_ADMIN', 'ADMIN', 'WAREHOUSE']);
+  const currentRole = activeOrg?.role || user?.role || 'SALES';
+  const isWarehouse = currentRole === 'WAREHOUSE';
 
   const [searchParams, setSearchParams] = useSearchParams();
   const urlLowStock = searchParams.get('lowStock') === 'true';
@@ -139,7 +141,7 @@ export const Products: React.FC = () => {
     try {
       await productService.createProduct({
         name: formData.name.trim(), sku: formData.sku.trim().toUpperCase(),
-        category: formData.category, unitPrice: Number(formData.unitPrice),
+        category: formData.category, unitPrice: isWarehouse ? 0 : Number(formData.unitPrice),
         currentStock: Number(formData.currentStock), minimumStock: Number(formData.minimumStock),
         warehouseLocation: formData.warehouseLocation.trim(),
       });
@@ -162,7 +164,7 @@ export const Products: React.FC = () => {
     try {
       await productService.updateProduct(selectedProd.id, {
         name: formData.name.trim(), sku: formData.sku.trim().toUpperCase(),
-        category: formData.category, unitPrice: Number(formData.unitPrice),
+        category: formData.category, unitPrice: isWarehouse ? Number(selectedProd.unitPrice) : Number(formData.unitPrice),
         minimumStock: Number(formData.minimumStock), warehouseLocation: formData.warehouseLocation.trim(),
       });
       closeModal();
@@ -175,120 +177,132 @@ export const Products: React.FC = () => {
     }
   };
 
-  const handleInwardSuccess = (p: Product, added: number) => {
-    toast.success(`Inward of ${added} units recorded for ${p.name}`);
+  const handleInwardSuccess = (p: Product, quantity: number, type: 'IN' | 'OUT') => {
+    toast.success(`${type === 'IN' ? 'Inward receipt' : 'Outward deduction'} of ${quantity} units recorded for ${p.name}`);
     void fetchProducts();
   };
 
-  const columns: TableColumn<Product>[] = [
-    {
-      key: 'name',
-      header: 'Product Details',
-      render: (p) => (
-        <div>
-          <Link to={`/products/${p.id}`} className="fw-700 color-primary d-block">
-            {p.name}
-          </Link>
-          <div className="fs-12 text-mono color-tertiary">
-            SKU: {p.sku} · Location: <span className="color-primary fw-600">{p.warehouseLocation}</span>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'category',
-      header: 'Category',
-      render: (p) => (
-        <span className="badge badge-secondary">{p.category}</span>
-      ),
-    },
-    {
-      key: 'unitPrice',
-      header: 'Unit Price',
-      className: 'text-mono',
-      render: (p) => `₹${Number(p.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
-    },
-    {
-      key: 'currentStock',
-      header: 'Stock Level',
-      render: (p) => {
-        const isLow = p.currentStock <= p.minimumStock;
-        const isZero = p.currentStock === 0;
-        const pct = Math.min(Math.round((p.currentStock / Math.max(p.minimumStock * 2, 1)) * 100), 100);
-
-        return (
-          <div style={{ minWidth: '130px' }}>
-            <div className="flex-between mb-4">
-              <span className={`fw-700 fs-13 ${isZero ? 'color-danger' : isLow ? 'color-warning' : 'color-success'}`}>
-                {p.currentStock} units
-              </span>
-              <span className="fs-11 color-tertiary">min: {p.minimumStock}</span>
-            </div>
-            <div className="stock-meter-bg" style={{ height: '4px' }}>
-              <div
-                className="stock-meter-bar"
-                style={{
-                  width: `${pct}%`,
-                  background: isZero ? 'var(--danger)' : isLow ? 'var(--warning)' : 'var(--success)',
-                }}
-              />
+  const columns = useMemo<TableColumn<Product>[]>(() => {
+    const baseCols: TableColumn<Product>[] = [
+      {
+        key: 'name',
+        header: 'Product Details',
+        render: (p) => (
+          <div>
+            <Link to={`/products/${p.id}`} className="fw-700 color-primary d-block">
+              {p.name}
+            </Link>
+            <div className="fs-12 text-mono color-tertiary">
+              SKU: {p.sku} · Location: <span className="color-primary fw-600">{p.warehouseLocation}</span>
             </div>
           </div>
-        );
+        ),
       },
-    },
-    {
-      key: 'actions',
-      header: '',
-      className: 'text-right',
-      render: (p) => (
-        <div className="flex-center gap-6" style={{ justifyContent: 'flex-end' }}>
-          {canEdit && (
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => setInwardProd(p)}
-              title="Quick Stock Inward"
-            >
-              + Inward
-            </button>
-          )}
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={() => navigate(`/products/${p.id}`)}
-          >
-            Details
-          </button>
-          {canEdit && (
+      {
+        key: 'category',
+        header: 'Category',
+        render: (p) => (
+          <span className="badge badge-secondary">{p.category}</span>
+        ),
+      },
+      {
+        key: 'unitPrice',
+        header: 'Unit Price',
+        className: 'text-mono',
+        render: (p) => `₹${Number(p.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+      },
+      {
+        key: 'currentStock',
+        header: 'Stock Level',
+        render: (p) => {
+          const isLow = p.currentStock <= p.minimumStock;
+          const isZero = p.currentStock === 0;
+          const pct = Math.min(Math.round((p.currentStock / Math.max(p.minimumStock * 2, 1)) * 100), 100);
+
+          return (
+            <div style={{ minWidth: '130px' }}>
+              <div className="flex-between mb-4">
+                <span className={`fw-700 fs-13 ${isZero ? 'color-danger' : isLow ? 'color-warning' : 'color-success'}`}>
+                  {p.currentStock} units
+                </span>
+                <span className="fs-11 color-tertiary">min: {p.minimumStock}</span>
+              </div>
+              <div className="stock-meter-bg" style={{ height: '4px' }}>
+                <div
+                  className="stock-meter-bar"
+                  style={{
+                    width: `${pct}%`,
+                    background: isZero ? 'var(--danger)' : isLow ? 'var(--warning)' : 'var(--success)',
+                  }}
+                />
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        key: 'actions',
+        header: '',
+        className: 'text-right',
+        render: (p) => (
+          <div className="flex-center gap-6" style={{ justifyContent: 'flex-end' }}>
+            {canEdit && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setInwardProd(p)}
+                title="Quick Stock Adjustment"
+              >
+                ⚡ Adjust Stock
+              </button>
+            )}
             <button
               type="button"
               className="btn btn-ghost btn-sm"
-              onClick={(e) => { e.stopPropagation(); openEdit(p); }}
+              onClick={() => navigate(`/products/${p.id}`)}
             >
-              Edit
+              Details
             </button>
-          )}
-        </div>
-      ),
-    },
-  ];
+            {canEdit && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={(e) => { e.stopPropagation(); openEdit(p); }}
+              >
+                Edit
+              </button>
+            )}
+          </div>
+        ),
+      },
+    ];
+
+    if (isWarehouse) {
+      return baseCols.filter(col => col.key !== 'unitPrice');
+    }
+    return baseCols;
+  }, [canEdit, navigate, isWarehouse]);
 
 
 
   const handleExportCsv = () => {
     exportToCsv(
       `products_inventory_${new Date().toISOString().slice(0, 10)}`,
-      products.map((p) => ({
-        SKU: p.sku,
-        Name: p.name,
-        Category: p.category,
-        'Unit Price (INR)': p.unitPrice,
-        'Current Stock': p.currentStock,
-        'Minimum Stock': p.minimumStock,
-        'Stock Status': p.currentStock === 0 ? 'Out of Stock' : p.currentStock <= p.minimumStock ? 'Low Stock' : 'Optimal',
-        Location: p.warehouseLocation,
-      }))
+      products.map((p) => {
+        const row: Record<string, string | number> = {
+          SKU: p.sku,
+          Name: p.name,
+          Category: p.category,
+          'Current Stock': p.currentStock,
+          'Minimum Stock': p.minimumStock,
+          'Stock Status': p.currentStock === 0 ? 'Out of Stock' : p.currentStock <= p.minimumStock ? 'Low Stock' : 'Optimal',
+          Location: p.warehouseLocation || '—',
+        };
+        if (!isWarehouse) {
+          row['Unit Price (INR)'] = p.unitPrice;
+        }
+        return row;
+      })
     );
   };
 
@@ -363,18 +377,20 @@ export const Products: React.FC = () => {
           <div className="stat-card__footer">Requires immediate replenishment</div>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-card__header">
-            <span className="stat-card__label">Page Stock Valuation</span>
-            <div className="stat-card__icon stat-card__icon--green">
-              <IconIndianRupee size={18} />
+        {!isWarehouse && (
+          <div className="stat-card">
+            <div className="stat-card__header">
+              <span className="stat-card__label">Page Stock Valuation</span>
+              <div className="stat-card__icon stat-card__icon--green">
+                <IconIndianRupee size={18} />
+              </div>
             </div>
+            <div className="stat-card__value">
+              ₹{inventoryMetrics.totalValuation.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            </div>
+            <div className="stat-card__footer">Asset value of listed items</div>
           </div>
-          <div className="stat-card__value">
-            ₹{inventoryMetrics.totalValuation.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-          </div>
-          <div className="stat-card__footer">Asset value of listed items</div>
-        </div>
+        )}
       </div>
 
       {/* Category Pills & Filters */}
@@ -386,7 +402,7 @@ export const Products: React.FC = () => {
             onClick={() => handleLowStockToggle(false)}
           >
             <span>All Catalog Items</span>
-            <span className="status-tab__badge">{inventoryMetrics.totalCount}</span>
+            <span className="status-tab__count">{inventoryMetrics.totalCount}</span>
           </button>
           <button
             type="button"
@@ -394,7 +410,14 @@ export const Products: React.FC = () => {
             onClick={() => handleLowStockToggle(true)}
           >
             <span>⚠️ Low Stock Warnings</span>
-            <span className="status-tab__badge" style={{ background: 'var(--warning)', color: '#000' }}>
+            <span
+              className="status-tab__count"
+              style={
+                inventoryMetrics.lowCount > 0
+                  ? { background: 'rgba(234, 179, 8, 0.2)', color: '#facc15', border: '1px solid rgba(234, 179, 8, 0.4)' }
+                  : undefined
+              }
+            >
               {inventoryMetrics.lowCount}
             </span>
           </button>

@@ -193,7 +193,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isSuperAdmin) return true; // Super admins have bypass in UI
     const activeRole = activeOrg?.role || user.role;
     if (!activeRole) return false;
-    return (roles as string[]).includes(activeRole);
+    const strRoles = roles as string[];
+    return (
+      strRoles.includes(activeRole) ||
+      (activeRole === 'ORG_ADMIN' && strRoles.includes('ADMIN')) ||
+      (activeRole === 'ADMIN' && strRoles.includes('ORG_ADMIN'))
+    );
   };
 
   return (

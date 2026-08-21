@@ -7,7 +7,8 @@ import { PermissionCode } from '../config/permissions';
  * Guards a route based on organization roles.
  * Must be used after authenticate and resolveTenantContext.
  */
-export function authorize(...allowedRoles: OrgRole[]) {
+export function authorize(...roles: (OrgRole | OrgRole[] | string | string[])[]) {
+  const allowedRoles = (roles as any[]).flat().map((r) => String(r));
   return (req: Request, _res: Response, next: NextFunction): void => {
     if (!req.user) {
       return next(AppError.unauthorized('Authentication required.'));
@@ -21,7 +22,13 @@ export function authorize(...allowedRoles: OrgRole[]) {
       return next(AppError.forbidden('Organization tenant context required.'));
     }
 
-    if (!allowedRoles.includes(req.tenant.role)) {
+    const userRole = String(req.tenant.role);
+    const isAllowed =
+      allowedRoles.includes(userRole) ||
+      (userRole === 'ORG_ADMIN' && allowedRoles.includes('ADMIN')) ||
+      (userRole === 'ADMIN' && allowedRoles.includes('ORG_ADMIN'));
+
+    if (!isAllowed) {
       return next(
         AppError.forbidden(
           `Your role (${req.tenant.role}) does not have permission to perform this action.`
@@ -66,3 +73,32 @@ export function requirePermission(...requiredPermissions: (PermissionCode | stri
     next();
   };
 }
+
+/**
+ * Guards a route based on plan-allowed commercial features.
+ * Must be used after authenticate and resolveTenantContext.
+ */
+export function requireFeature(featureCode: string) {
+  return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
+    if (!req.user) {
+      return next(AppError.unauthorized('Authentication required.'));
+    }
+
+    if (req.user.isSuperAdmin || req.user.supportSessionId) {
+      return next(); // Super Admins bypass commercial feature restrictions
+    }
+
+    if (!req.tenant) {
+      return next(AppError.forbidden('Organization tenant context required.'));
+    }
+
+    try {
+      const { entitlementService } = await import('../modules/subscriptions/entitlement.service');
+      await entitlementService.assertFeature(req.tenant.organizationId, featureCode);
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+

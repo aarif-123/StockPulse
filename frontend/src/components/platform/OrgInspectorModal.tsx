@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api, handleApiError } from '../../services/api';
+import { useAuth } from '../../hooks/useAuth';
 
 interface OrgDetailsData {
   id: string;
@@ -61,7 +62,9 @@ interface Props {
 }
 
 export const OrgInspectorModal: React.FC<Props> = ({ organizationId, onClose }) => {
+  const { startSupportSession } = useAuth();
   const [org, setOrg] = useState<OrgDetailsData | null>(null);
+  const [impersonating, setImpersonating] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'roster' | 'credentials' | 'plan'>('roster');
@@ -179,26 +182,78 @@ export const OrgInspectorModal: React.FC<Props> = ({ organizationId, onClose }) 
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            style={{
-              backgroundColor: '#1e293b',
-              border: '1px solid #334155',
-              color: '#94a3b8',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              fontWeight: 700,
-              fontSize: '16px',
-            }}
-            title="Close Inspector"
-          >
-            ✕
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {org && (
+              <button
+                disabled={impersonating}
+                onClick={async () => {
+                  if (!confirm(`Launch Super Admin Support session into workspace for "${org.name}"?`)) return;
+                  setImpersonating(true);
+                  try {
+                    const response = await api.post('/platform/support-session/start', {
+                      targetOrganizationId: org.id,
+                      reason: 'Super Admin Live Workspace Inspection',
+                      durationMinutes: 60,
+                    });
+                    const { session, impersonationToken, targetUser, targetOrganization } = response.data.data;
+                    const targetOrgSummary = {
+                      organizationId: targetOrganization.id,
+                      organizationName: targetOrganization.name,
+                      organizationSlug: targetOrganization.slug,
+                      role: 'ORG_ADMIN' as const,
+                      status: 'ACTIVE',
+                    };
+                    const targetUserObj = {
+                      ...targetUser,
+                      isSuperAdmin: false,
+                      role: 'ORG_ADMIN' as const,
+                    };
+                    startSupportSession(impersonationToken, session.id, targetUserObj, targetOrgSummary);
+                    window.location.href = '/dashboard';
+                  } catch (err) {
+                    alert(handleApiError(err));
+                    setImpersonating(false);
+                  }
+                }}
+                style={{
+                  padding: '7px 14px',
+                  backgroundColor: '#f59e0b',
+                  color: '#000000',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: 700,
+                  fontSize: '12.5px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                ⚡ {impersonating ? 'Connecting...' : 'Impersonate Workspace'}
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              style={{
+                backgroundColor: '#1e293b',
+                border: '1px solid #334155',
+                color: '#94a3b8',
+                borderRadius: '8px',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: '16px',
+              }}
+              title="Close Inspector"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Modal Body */}
@@ -407,33 +462,45 @@ export const OrgInspectorModal: React.FC<Props> = ({ organizationId, onClose }) 
                 </div>
               )}
 
-              {/* Tab 3: Commercial Plan Details */}
+              {/* Tab 3: Commercial Plan Details & Direct Admin Overrides */}
               {activeTab === 'plan' && (
-                <div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   {currentSub ? (
                     <div style={{ backgroundColor: '#1e293b', padding: '18px', borderRadius: '12px', border: '1px solid #334155' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                         <div>
                           <span style={{ fontSize: '11px', color: '#38bdf8', textTransform: 'uppercase', fontWeight: 800 }}>
-                            ACTIVE COMMERCIAL PLAN
+                            CURRENT ASSIGNED PLAN
                           </span>
                           <h3 style={{ margin: '2px 0 0 0', fontSize: '18px', fontWeight: 800, color: '#f8fafc' }}>
                             {currentSub.plan.name}
                           </h3>
                         </div>
-                        <span
-                          style={{
-                            padding: '4px 12px',
-                            borderRadius: '12px',
-                            fontSize: '11px',
-                            fontWeight: 800,
-                            backgroundColor: 'rgba(34, 197, 94, 0.15)',
-                            color: '#4ade80',
-                            border: '1px solid rgba(34, 197, 94, 0.3)',
-                          }}
-                        >
-                          {currentSub.status} ({currentSub.billingCycle})
-                        </span>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <span
+                            style={{
+                              padding: '4px 12px',
+                              borderRadius: '12px',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              backgroundColor:
+                                currentSub.status === 'ACTIVE'
+                                  ? 'rgba(34, 197, 94, 0.15)'
+                                  : currentSub.status === 'TRIAL'
+                                  ? 'rgba(245, 158, 11, 0.15)'
+                                  : 'rgba(239, 68, 68, 0.15)',
+                              color:
+                                currentSub.status === 'ACTIVE'
+                                  ? '#4ade80'
+                                  : currentSub.status === 'TRIAL'
+                                  ? '#f59e0b'
+                                  : '#ef4444',
+                              border: '1px solid currentColor',
+                            }}
+                          >
+                            {currentSub.status} ({currentSub.billingCycle})
+                          </span>
+                        </div>
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
@@ -456,7 +523,7 @@ export const OrgInspectorModal: React.FC<Props> = ({ organizationId, onClose }) 
                           </div>
                         </div>
                         <div style={{ backgroundColor: '#0f172a', padding: '12px', borderRadius: '8px' }}>
-                          <div style={{ fontSize: '11px', color: '#94a3b8' }}>Current Subscription Expiry</div>
+                          <div style={{ fontSize: '11px', color: '#94a3b8' }}>Current Period Expiration</div>
                           <div style={{ fontSize: '14px', fontWeight: 700, color: '#f59e0b', marginTop: '2px' }}>
                             {new Date(currentSub.currentPeriodEnd).toLocaleDateString()}
                           </div>
@@ -468,6 +535,126 @@ export const OrgInspectorModal: React.FC<Props> = ({ organizationId, onClose }) 
                       No active subscription plan configured for this organization.
                     </div>
                   )}
+
+                  {/* Super Admin Direct Plan & Trial Control Panel */}
+                  <div style={{ backgroundColor: '#1e293b', padding: '18px', borderRadius: '12px', border: '1px solid #334155' }}>
+                    <h4 style={{ margin: '0 0 14px 0', fontSize: '14px', fontWeight: 800, color: '#f59e0b' }}>
+                      ⚡ Super Admin Commercial Controls
+                    </h4>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      {/* 1-Click Extend Trial */}
+                      <div style={{ backgroundColor: '#0f172a', padding: '16px', borderRadius: '10px', border: '1px solid #334155' }}>
+                        <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#f8fafc', marginBottom: '6px' }}>
+                          ⏳ Extend 7-Day Free Trial
+                        </div>
+                        <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 12px 0' }}>
+                          Grants an additional 7 days of full system access without requiring payment.
+                        </p>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await api.post(`/platform/organizations/${organizationId}/extend-trial`, { days: 7 });
+                              alert('✓ 7-Day Free Trial successfully extended for this organization.');
+                              const res = await api.get(`/platform/organizations/${organizationId}`);
+                              setOrg(res.data.data);
+                            } catch (e) {
+                              alert(handleApiError(e));
+                            }
+                          }}
+                          style={{
+                            padding: '8px 16px',
+                            backgroundColor: '#f59e0b',
+                            color: '#000000',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontWeight: 700,
+                            fontSize: '12.5px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          + Extend Trial (+7 Days)
+                        </button>
+                      </div>
+
+                      {/* Direct Plan Assignment */}
+                      <div style={{ backgroundColor: '#0f172a', padding: '16px', borderRadius: '10px', border: '1px solid #334155' }}>
+                        <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#f8fafc', marginBottom: '6px' }}>
+                          📦 Direct Commercial Plan Assignment
+                        </div>
+                        <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 12px 0' }}>
+                          Instantly assign Growth Pro or Enterprise Scale to this organization.
+                        </p>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            onClick={async () => {
+                              try {
+                                const plansRes = await api.get('/platform/plans');
+                                const plans = plansRes.data.data || [];
+                                const growthPlan = plans.find((p: any) => p.code === 'growth_v1') || plans[0];
+                                if (!growthPlan) return alert('No growth plan found');
+                                await api.post(`/platform/organizations/${organizationId}/assign-plan`, {
+                                  planId: growthPlan.id,
+                                  billingCycle: 'YEARLY',
+                                  status: 'ACTIVE',
+                                });
+                                alert(`✓ Successfully assigned ${growthPlan.name} (Yearly Active).`);
+                                const res = await api.get(`/platform/organizations/${organizationId}`);
+                                setOrg(res.data.data);
+                              } catch (e) {
+                                alert(handleApiError(e));
+                              }
+                            }}
+                            style={{
+                              padding: '8px 14px',
+                              backgroundColor: '#38bdf8',
+                              color: '#000000',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontWeight: 700,
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Assign Growth Pro (Yearly)
+                          </button>
+
+                          <button
+                            onClick={async () => {
+                              try {
+                                const plansRes = await api.get('/platform/plans');
+                                const plans = plansRes.data.data || [];
+                                const entPlan = plans.find((p: any) => p.code === 'enterprise_v1') || plans[plans.length - 1];
+                                if (!entPlan) return alert('No enterprise plan found');
+                                await api.post(`/platform/organizations/${organizationId}/assign-plan`, {
+                                  planId: entPlan.id,
+                                  billingCycle: 'YEARLY',
+                                  status: 'ACTIVE',
+                                });
+                                alert(`✓ Successfully assigned ${entPlan.name} (Yearly Active).`);
+                                const res = await api.get(`/platform/organizations/${organizationId}`);
+                                setOrg(res.data.data);
+                              } catch (e) {
+                                alert(handleApiError(e));
+                              }
+                            }}
+                            style={{
+                              padding: '8px 14px',
+                              backgroundColor: '#a855f7',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontWeight: 700,
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Assign Enterprise
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -475,7 +662,36 @@ export const OrgInspectorModal: React.FC<Props> = ({ organizationId, onClose }) 
         </div>
 
         {/* Modal Footer */}
-        <div style={{ padding: '16px 24px', borderTop: '1px solid #1e293b', backgroundColor: '#0c111d', textAlign: 'right' }}>
+        <div style={{ padding: '16px 24px', borderTop: '1px solid #1e293b', backgroundColor: '#0c111d', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            {org && (
+              <button
+                onClick={async () => {
+                  const newStatus = org.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+                  if (!confirm(`Are you sure you want to change organization status to ${newStatus}?`)) return;
+                  try {
+                    await api.put(`/platform/organizations/${organizationId}/status`, { status: newStatus });
+                    const res = await api.get(`/platform/organizations/${organizationId}`);
+                    setOrg(res.data.data);
+                  } catch (e) {
+                    alert(handleApiError(e));
+                  }
+                }}
+                style={{
+                  padding: '8px 14px',
+                  backgroundColor: org.status === 'ACTIVE' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)',
+                  border: `1px solid ${org.status === 'ACTIVE' ? '#ef4444' : '#22c55e'}`,
+                  color: org.status === 'ACTIVE' ? '#ef4444' : '#4ade80',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  fontSize: '12.5px',
+                  cursor: 'pointer',
+                }}
+              >
+                {org.status === 'ACTIVE' ? '🔒 Suspend Organization' : '✓ Re-Activate Organization'}
+              </button>
+            )}
+          </div>
           <button
             onClick={onClose}
             style={{

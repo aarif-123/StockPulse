@@ -5,6 +5,8 @@ import { auditService } from '../audit/audit.service';
 import { ManualUpiPaymentProvider } from '../payments/providers/manual-upi.provider';
 import { signToken } from '../../utils/jwt';
 import { OrgRole, OrgStatus, Prisma, UserStatus, SubscriptionStatus, BillingCycle } from '@prisma/client';
+import { invalidateTenantCache } from '../../middleware/tenant-context';
+import { invalidateFeatureCache } from '../subscriptions/entitlement.service';
 
 const manualPaymentProvider = new ManualUpiPaymentProvider();
 
@@ -35,6 +37,7 @@ export interface CreatePlanInput {
   maxWarehouses?: number;
   maxTransactions?: number;
   allowedFeatures?: string[];
+  isActive?: boolean;
 }
 
 export interface StartSupportSessionInput {
@@ -360,6 +363,108 @@ export const platformService = {
   },
 
   /**
+   * Super Admin 1-Click Extend 7-Day Free Trial
+   */
+  async extendTrial(organizationId: string, additionalDays: number, superAdminUserId: string) {
+    const days = Math.max(1, additionalDays || 7);
+    const latestSub = await prisma.subscription.findFirst({
+      where: { organizationId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const now = new Date();
+    const baseDate = latestSub?.trialEndsAt && latestSub.trialEndsAt > now ? latestSub.trialEndsAt : now;
+    const newTrialEnd = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000);
+
+    let updatedSub = null;
+    if (latestSub) {
+      updatedSub = await prisma.subscription.update({
+        where: { id: latestSub.id },
+        data: {
+          status: SubscriptionStatus.TRIAL,
+          trialEndsAt: newTrialEnd,
+          currentPeriodEnd: newTrialEnd,
+        },
+      });
+    }
+
+    await prisma.organization.update({
+      where: { id: organizationId },
+      data: { status: OrgStatus.TRIAL },
+    });
+
+    // Invalidate caches
+    invalidateTenantCache(organizationId);
+    invalidateFeatureCache(organizationId);
+
+    await auditService.log({
+      scope: 'PLATFORM',
+      organizationId,
+      actorUserId: superAdminUserId,
+      action: 'TRIAL_EXTENDED',
+      resource: 'Subscription',
+      resourceId: updatedSub?.id || organizationId,
+      metadata: { additionalDays: days, newTrialEnd },
+    });
+
+    return { success: true, newTrialEnd, subscription: updatedSub };
+  },
+
+  /**
+   * Super Admin Direct Commercial Plan Assignment
+   */
+  async assignPlan(
+    organizationId: string,
+    planId: string,
+    billingCycle: BillingCycle,
+    status: SubscriptionStatus,
+    superAdminUserId: string
+  ) {
+    const plan = await prisma.plan.findUnique({ where: { id: planId } });
+    if (!plan) {
+      throw AppError.notFound('Plan', planId);
+    }
+
+    const now = new Date();
+    const durationMonths = billingCycle === 'YEARLY' ? 12 : 1;
+    const periodEnd = new Date();
+    periodEnd.setMonth(periodEnd.getMonth() + durationMonths);
+
+    const subscription = await prisma.subscription.create({
+      data: {
+        organizationId,
+        planId: plan.id,
+        status: status || SubscriptionStatus.ACTIVE,
+        billingCycle: billingCycle || BillingCycle.YEARLY,
+        currentPeriodStart: now,
+        currentPeriodEnd: periodEnd,
+      },
+      include: { plan: true },
+    });
+
+    await prisma.organization.update({
+      where: { id: organizationId },
+      data: { status: OrgStatus.ACTIVE },
+    });
+
+    // Invalidate caches
+    invalidateTenantCache(organizationId);
+    invalidateFeatureCache(organizationId);
+
+    await auditService.log({
+      scope: 'PLATFORM',
+      organizationId,
+      actorUserId: superAdminUserId,
+      action: 'PLAN_ASSIGNED_BY_ADMIN',
+      resource: 'Subscription',
+      resourceId: subscription.id,
+      metadata: { planName: plan.name, planCode: plan.code, billingCycle, status },
+    });
+
+    return subscription;
+  },
+
+  /**
    * Plans Management.
    */
   async listPlans() {
@@ -387,6 +492,7 @@ export const platformService = {
         maxWarehouses: input.maxWarehouses ?? 2,
         maxTransactions: input.maxTransactions ?? 1000,
         allowedFeatures: input.allowedFeatures ?? ['CORE_ERP', 'CRM', 'CHALLANS', 'BASIC_REPORTS'],
+        isActive: input.isActive !== false,
       },
     });
 

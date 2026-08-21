@@ -23,7 +23,21 @@ export const PlatformLayout: React.FC = () => {
         // Silently handle layout telemetry fetching
       }
     };
+
     void fetchPendingPaymentsCount();
+
+    const handlePaymentsUpdated = (e: any) => {
+      if (typeof e?.detail?.count === 'number') {
+        setPendingPaymentsCount(e.detail.count);
+      } else {
+        void fetchPendingPaymentsCount();
+      }
+    };
+
+    window.addEventListener('payments-updated', handlePaymentsUpdated);
+    return () => {
+      window.removeEventListener('payments-updated', handlePaymentsUpdated);
+    };
   }, [location.pathname]);
 
   const handleLogout = () => {

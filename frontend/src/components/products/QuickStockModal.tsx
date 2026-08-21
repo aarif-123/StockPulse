@@ -7,7 +7,7 @@ interface QuickStockModalProps {
   product: Product;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (updatedProduct: Product, addedQuantity: number) => void;
+  onSuccess: (updatedProduct: Product, quantity: number, type: 'IN' | 'OUT') => void;
 }
 
 export const QuickStockModal: React.FC<QuickStockModalProps> = ({
@@ -16,12 +16,22 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const [movementType, setMovementType] = useState<'IN' | 'OUT'>('IN');
   const [quantity, setQuantity] = useState('10');
   const [reason, setReason] = useState('Purchase Order Inward');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const handleTypeChange = (type: 'IN' | 'OUT') => {
+    setMovementType(type);
+    if (type === 'IN') {
+      setReason('Purchase Order Inward');
+    } else {
+      setReason('Damaged / Scrap Write-off');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,15 +41,20 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
       return;
     }
 
+    if (movementType === 'OUT' && qty > product.currentStock) {
+      setError(`Cannot deduct ${qty} units. Only ${product.currentStock} units are currently in stock.`);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
       const res = await productService.createStockMovement(product.id, {
         quantity: qty,
-        type: 'IN',
-        reason: reason.trim() || 'Quick Stock Inward',
+        type: movementType,
+        reason: reason.trim() || (movementType === 'IN' ? 'Quick Stock Inward' : 'Quick Stock Outward'),
       });
-      onSuccess(res.data.product, qty);
+      onSuccess(res.data.product, qty, movementType);
       onClose();
     } catch (err) {
       setError(handleApiError(err));
@@ -57,13 +72,13 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
       >
         <div className="modal-header">
           <div>
-            <h2 className="modal-title">Quick Stock Inward</h2>
+            <h2 className="modal-title">Quick Stock Adjustment</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '2px' }}>
-              Replenishing <strong>{product.name}</strong> ({product.sku})
+              Modifying inventory for <strong>{product.name}</strong> ({product.sku})
             </p>
           </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">
-            ✕
+          <button className="modal-close" onClick={onClose} aria-label="Close" type="button" style={{ fontSize: '20px', cursor: 'pointer', background: 'none', border: 'none', color: 'var(--text-secondary)' }}>
+            ×
           </button>
         </div>
 
@@ -76,7 +91,8 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
           marginBottom: '16px',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          border: '1px solid var(--border-color)'
         }}>
           <div>
             <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Current Stock</div>
@@ -93,9 +109,31 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label" htmlFor="quick-qty">
-              Units to Add <span style={{ color: 'var(--danger)' }}>*</span>
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label className="form-label" style={{ marginBottom: '8px', display: 'block' }}>Adjustment Direction</label>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                className={`btn ${movementType === 'IN' ? 'btn-success' : 'btn-secondary'} flex-1`}
+                onClick={() => handleTypeChange('IN')}
+                style={{ padding: '8px 12px', fontWeight: 600, display: 'flex', justifyContent: 'center', gap: '6px' }}
+              >
+                ➕ Inward (Add)
+              </button>
+              <button
+                type="button"
+                className={`btn ${movementType === 'OUT' ? 'btn-danger' : 'btn-secondary'} flex-1`}
+                onClick={() => handleTypeChange('OUT')}
+                style={{ padding: '8px 12px', fontWeight: 600, display: 'flex', justifyContent: 'center', gap: '6px' }}
+              >
+                ➖ Outward (Deduct)
+              </button>
+            </div>
+          </div>
+
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label className="form-label" htmlFor="quick-qty" style={{ marginBottom: '6px', display: 'block' }}>
+              Quantity {movementType === 'IN' ? 'to Add' : 'to Deduct'} <span style={{ color: 'var(--danger)' }}>*</span>
             </label>
             <input
               type="number"
@@ -108,12 +146,13 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
               placeholder="e.g. 50"
               required
               autoFocus
+              style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="quick-reason">
-              Inward Reason
+          <div className="form-group" style={{ marginBottom: '20px' }}>
+            <label className="form-label" htmlFor="quick-reason" style={{ marginBottom: '6px', display: 'block' }}>
+              Reason for Adjustment
             </label>
             <input
               type="text"
@@ -121,26 +160,29 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
               className="form-input"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. PO #1092 / Supplier Delivery"
+              placeholder="e.g. Supplier Inward / Damage check"
+              style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
             />
           </div>
 
-          <div className="modal-footer" style={{ marginTop: '24px' }}>
+          <div className="modal-footer" style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
             <button
               type="button"
               className="btn btn-secondary"
               onClick={onClose}
               disabled={loading}
+              style={{ padding: '8px 16px' }}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="btn btn-primary"
+              className={`btn ${movementType === 'IN' ? 'btn-success' : 'btn-danger'}`}
               disabled={loading}
               id="submit-quick-stock-btn"
+              style={{ padding: '8px 16px', fontWeight: 600 }}
             >
-              {loading ? 'Adding Stock...' : `+ Add ${quantity || 0} Units`}
+              {loading ? 'Processing...' : movementType === 'IN' ? `Add ${quantity || 0} Units` : `Deduct ${quantity || 0} Units`}
             </button>
           </div>
         </form>

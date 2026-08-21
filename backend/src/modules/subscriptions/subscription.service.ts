@@ -18,6 +18,20 @@ export const subscriptionService = {
       throw AppError.notFound('Subscription for organization', organizationId);
     }
 
+    let status = subscription.status;
+    const isTrialExpired =
+      subscription.status === SubscriptionStatus.TRIAL &&
+      subscription.trialEndsAt &&
+      new Date() > new Date(subscription.trialEndsAt);
+
+    if (isTrialExpired && subscription.status !== SubscriptionStatus.EXPIRED) {
+      status = SubscriptionStatus.EXPIRED;
+      await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: { status: SubscriptionStatus.EXPIRED },
+      });
+    }
+
     const [userCount, productCount, customerCount, transactionCount] = await Promise.all([
       prisma.organizationMembership.count({
         where: { organizationId, status: 'ACTIVE' },
@@ -30,7 +44,7 @@ export const subscriptionService = {
     return {
       subscription: {
         id: subscription.id,
-        status: subscription.status,
+        status,
         billingCycle: subscription.billingCycle,
         currentPeriodStart: subscription.currentPeriodStart,
         currentPeriodEnd: subscription.currentPeriodEnd,

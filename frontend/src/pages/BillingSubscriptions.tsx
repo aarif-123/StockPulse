@@ -124,10 +124,26 @@ export const BillingSubscriptions: React.FC = () => {
     }
   };
 
+  // Grid View Billing Cycle Selector (Monthly vs Yearly)
+  const [gridBillingCycle, setGridBillingCycle] = useState<'MONTHLY' | 'YEARLY'>('YEARLY');
+
   const calculateUsagePct = (current: number, limit: number) => {
     if (limit <= 0) return 0;
     return Math.min(100, Math.round((current / limit) * 100));
   };
+
+  const isTrial = subData?.subscription.status === 'TRIAL';
+  const trialEnd = subData?.subscription.trialEndsAt
+    ? new Date(subData.subscription.trialEndsAt)
+    : subData?.subscription.currentPeriodEnd
+    ? new Date(subData.subscription.currentPeriodEnd)
+    : new Date();
+
+  const daysRemaining = Math.max(
+    0,
+    Math.ceil((trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+  );
+  const isExpired = subData?.subscription.status === 'EXPIRED' || (isTrial && daysRemaining === 0);
 
   return (
     <div>
@@ -135,6 +151,73 @@ export const BillingSubscriptions: React.FC = () => {
         title="Billing & Subscription Plans"
         subtitle="Manage your SaaS subscription, monitor active resource quotas, and upgrade plans."
       />
+
+      {/* Trial Expired Lock Warning Banner */}
+      {isExpired && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '14px',
+            padding: '16px 20px',
+            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+            border: '1.5px solid rgba(239, 68, 68, 0.5)',
+            borderRadius: 'var(--radius-md)',
+            marginBottom: '24px',
+          }}
+        >
+          <span style={{ fontSize: '22px' }}>🔒</span>
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--danger)', marginBottom: '4px' }}>
+              7-Day Free Trial Expired — Workspace Access Locked
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+              Your 7-day evaluation period has ended. Non-billing workspace features are locked. Please select a commercial plan below and complete payment verification via UPI to immediately restore full access.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Active Trial Notice Banner */}
+      {isTrial && !isExpired && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '14px',
+            padding: '16px 20px',
+            backgroundColor: 'rgba(234, 179, 8, 0.12)',
+            border: '1.5px solid rgba(234, 179, 8, 0.4)',
+            borderRadius: 'var(--radius-md)',
+            marginBottom: '24px',
+          }}
+        >
+          <span style={{ fontSize: '22px' }}>⏳</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '15px', fontWeight: 700, color: '#facc15' }}>
+                7-Day Free Trial Active
+              </span>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: '9999px',
+                  backgroundColor: 'rgba(234, 179, 8, 0.25)',
+                  color: '#fef08a',
+                  border: '1px solid rgba(234, 179, 8, 0.4)',
+                }}
+              >
+                {daysRemaining} {daysRemaining === 1 ? 'DAY' : 'DAYS'} REMAINING
+              </span>
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+              You are currently evaluating StockPulse with all enterprise features unlocked. After 7 days, operations access will be locked until a commercial plan is chosen.
+            </div>
+          </div>
+        </div>
+      )}
 
       {success && (
         <div
@@ -187,18 +270,30 @@ export const BillingSubscriptions: React.FC = () => {
           {/* Current Active Plan Overview & Quota Gauges */}
           {subData && (
             <div className="card" style={{ padding: '28px', marginBottom: '32px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      {subData.plan.name}
+                      {isTrial ? '7-Day Free Trial' : subData.plan.name}
                     </h2>
                     <span
                       className="badge"
                       style={{
-                        backgroundColor: subData.subscription.status === 'ACTIVE' ? 'var(--success-light)' : 'var(--warning-light)',
-                        color: subData.subscription.status === 'ACTIVE' ? 'var(--success)' : 'var(--warning)',
-                        border: subData.subscription.status === 'ACTIVE' ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(234,179,8,0.3)',
+                        backgroundColor: isExpired
+                          ? 'var(--danger-light)'
+                          : isTrial
+                          ? 'var(--warning-light)'
+                          : 'var(--success-light)',
+                        color: isExpired
+                          ? 'var(--danger)'
+                          : isTrial
+                          ? 'var(--warning)'
+                          : 'var(--success)',
+                        border: isExpired
+                          ? '1px solid rgba(239,68,68,0.3)'
+                          : isTrial
+                          ? '1px solid rgba(234,179,8,0.3)'
+                          : '1px solid rgba(34,197,94,0.3)',
                         padding: '3px 8px',
                         fontSize: '11px',
                         fontWeight: 700,
@@ -209,15 +304,21 @@ export const BillingSubscriptions: React.FC = () => {
                     </span>
                   </div>
                   <p style={{ margin: '6px 0 0 0', color: 'var(--text-secondary)', fontSize: '13.5px' }}>
-                    Valid until <strong style={{ color: 'var(--text-primary)' }}>{new Date(subData.subscription.currentPeriodEnd).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</strong> ({subData.subscription.billingCycle.toLowerCase()} cycle)
+                    {isTrial ? (
+                      <>Trial expires on <strong style={{ color: 'var(--text-primary)' }}>{trialEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</strong></>
+                    ) : (
+                      <>Valid until <strong style={{ color: 'var(--text-primary)' }}>{new Date(subData.subscription.currentPeriodEnd).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</strong> ({subData.subscription.billingCycle.toLowerCase()} cycle)</>
+                    )}
                   </p>
                 </div>
 
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--primary-hover)', fontFamily: 'var(--font-mono)' }}>
-                    ₹{(subData.subscription.billingCycle === 'YEARLY' ? subData.plan.yearlyPriceINR : subData.plan.monthlyPriceINR).toLocaleString()}
+                    {isTrial ? '₹0' : `₹${(subData.subscription.billingCycle === 'YEARLY' ? subData.plan.yearlyPriceINR : subData.plan.monthlyPriceINR).toLocaleString()}`}
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>billed {subData.subscription.billingCycle.toLowerCase()}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                    {isTrial ? '7-day full evaluation' : `billed ${subData.subscription.billingCycle.toLowerCase()}`}
+                  </div>
                 </div>
               </div>
 
@@ -270,29 +371,115 @@ export const BillingSubscriptions: React.FC = () => {
 
           {/* Upgrade Commercial Plans Grid */}
           <div style={{ marginBottom: '32px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '16px' }}>
-              Available Commercial Plans
-            </h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                  Available Commercial Plans
+                </h2>
+                <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  Transparent, predictable pricing for Indian wholesale, manufacturing, and distribution businesses.
+                </p>
+              </div>
+
+              {/* Billing Cycle Toggle */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  backgroundColor: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '3px',
+                  gap: '4px',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setGridBillingCycle('MONTHLY')}
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    borderRadius: '4px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    backgroundColor: gridBillingCycle === 'MONTHLY' ? 'var(--primary)' : 'transparent',
+                    color: gridBillingCycle === 'MONTHLY' ? '#000' : 'var(--text-secondary)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  Monthly
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGridBillingCycle('YEARLY')}
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    borderRadius: '4px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    backgroundColor: gridBillingCycle === 'YEARLY' ? 'var(--primary)' : 'transparent',
+                    color: gridBillingCycle === 'YEARLY' ? '#000' : 'var(--text-secondary)',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  Yearly <span style={{ fontSize: '10px', color: gridBillingCycle === 'YEARLY' ? '#15803d' : '#22c55e', fontWeight: 800 }}>Save ~25%</span>
+                </button>
+              </div>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
               {availablePlans.map((plan) => {
-                const isCurrentPlan = subData?.plan.id === plan.id;
+                const isCurrentActivePlan = subData?.subscription.status === 'ACTIVE' && subData?.plan.id === plan.id;
+                const isGrowthPlan = plan.code === 'growth_v1' || plan.name.toLowerCase().includes('growth');
+                const price = gridBillingCycle === 'YEARLY' ? Number(plan.yearlyPriceINR) : Number(plan.monthlyPriceINR);
+                const periodLabel = gridBillingCycle === 'YEARLY' ? '/ year' : '/ month';
+
                 return (
                   <div
                     key={plan.id}
                     className="card"
                     style={{
-                      border: isCurrentPlan ? '2px solid var(--primary)' : '1px solid var(--border-color)',
-                      boxShadow: isCurrentPlan ? '0 0 0 1px var(--primary-light), var(--shadow-md)' : 'var(--shadow-sm)',
+                      border: isCurrentActivePlan
+                        ? '2px solid var(--success)'
+                        : isGrowthPlan
+                        ? '2px solid var(--primary)'
+                        : '1px solid var(--border-color)',
+                      boxShadow: isCurrentActivePlan || isGrowthPlan
+                        ? '0 0 0 1px var(--primary-light), var(--shadow-md)'
+                        : 'var(--shadow-sm)',
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'space-between',
                       margin: 0,
+                      position: 'relative',
                     }}
                   >
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                         <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>{plan.name}</h3>
-                        {isCurrentPlan && (
+                        {isCurrentActivePlan && (
+                          <span
+                            className="badge"
+                            style={{
+                              background: 'var(--success-light)',
+                              color: 'var(--success)',
+                              border: '1px solid rgba(34, 197, 94, 0.3)',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                            }}
+                          >
+                            CURRENT ACTIVE
+                          </span>
+                        )}
+                        {!isCurrentActivePlan && isGrowthPlan && (
                           <span
                             className="badge"
                             style={{
@@ -305,15 +492,17 @@ export const BillingSubscriptions: React.FC = () => {
                               fontWeight: 700,
                             }}
                           >
-                            CURRENT
+                            ⭐ RECOMMENDED
                           </span>
                         )}
                       </div>
+
                       <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 16px 0', minHeight: '38px' }}>
                         {plan.description}
                       </p>
+
                       <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px', fontFamily: 'var(--font-mono)' }}>
-                        ₹{Number(plan.yearlyPriceINR).toLocaleString()} <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 400 }}>/ year</span>
+                        ₹{price.toLocaleString()} <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 400 }}>{periodLabel}</span>
                       </div>
 
                       <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '14px', fontSize: '13px', color: 'var(--text-secondary)' }}>
@@ -321,6 +510,7 @@ export const BillingSubscriptions: React.FC = () => {
                         <div style={{ marginBottom: '6px' }}>• Up to <strong style={{ color: 'var(--text-primary)' }}>{plan.maxProducts}</strong> Products</div>
                         <div style={{ marginBottom: '6px' }}>• Up to <strong style={{ color: 'var(--text-primary)' }}>{plan.maxCustomers}</strong> Customers</div>
                         <div style={{ marginBottom: '6px' }}>• Up to <strong style={{ color: 'var(--text-primary)' }}>{plan.maxTransactions}</strong> Tx/mo</div>
+                        <div style={{ marginBottom: '6px' }}>• Up to <strong style={{ color: 'var(--text-primary)' }}>{plan.maxWarehouses}</strong> Warehouse locations</div>
                       </div>
 
                       <div style={{ marginTop: '14px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -344,17 +534,27 @@ export const BillingSubscriptions: React.FC = () => {
                     </div>
 
                     <button
-                      onClick={() => setSelectedPlanForUpgrade(plan)}
-                      disabled={isCurrentPlan}
-                      className={`btn ${isCurrentPlan ? 'btn-secondary' : 'btn-primary'}`}
+                      onClick={() => {
+                        setBillingCycle(gridBillingCycle);
+                        setSelectedPlanForUpgrade(plan);
+                      }}
+                      disabled={isCurrentActivePlan}
+                      className={`btn ${isCurrentActivePlan ? 'btn-secondary' : 'btn-primary'}`}
                       style={{
                         marginTop: '24px',
                         width: '100%',
                         padding: '10px',
                         fontSize: '13.5px',
+                        fontWeight: 600,
                       }}
                     >
-                      {isCurrentPlan ? 'Active Plan' : `Upgrade via UPI QR`}
+                      {isCurrentActivePlan
+                        ? 'Active Commercial Plan'
+                        : isExpired
+                        ? `Unlock Workspace (${plan.name})`
+                        : isTrial
+                        ? `Upgrade to ${plan.name} via UPI QR`
+                        : `Switch to ${plan.name}`}
                     </button>
                   </div>
                 );

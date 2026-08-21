@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as reportsService from './reports.service';
-import { StockMovementsReportSchema } from './reports.schema';
+import { StockMovementsReportSchema, ReportsAnalyticsQuerySchema } from './reports.schema';
 
 export async function getStockMovements(req: Request, res: Response, next: NextFunction) {
   try {
@@ -16,7 +16,8 @@ export async function getStockMovements(req: Request, res: Response, next: NextF
 export async function getAnalytics(req: Request, res: Response, next: NextFunction) {
   try {
     const orgId = req.tenant!.organizationId;
-    const result = await reportsService.getReportsAnalytics(orgId);
+    const validated = ReportsAnalyticsQuerySchema.parse(req.query);
+    const result = await reportsService.getReportsAnalytics(orgId, validated.range || '30d');
     res.status(200).json({ data: result });
   } catch (err) {
     next(err);

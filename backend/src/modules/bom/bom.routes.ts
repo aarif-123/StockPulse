@@ -2,13 +2,14 @@ import { Router } from 'express';
 import { bomController } from './bom.controller';
 import { authenticate } from '../../middleware/authenticate';
 import { resolveTenantContext } from '../../middleware/tenant-context';
-import { authorize } from '../../middleware/authorize';
+import { authorize, requireFeature } from '../../middleware/authorize';
 
 const router = Router();
 
-// All routes require authentication & active tenant context
+// All routes require authentication & active tenant context & BOM plan entitlement
 router.use(authenticate);
 router.use(resolveTenantContext);
+router.use(requireFeature('BOM_ASSEMBLIES'));
 
 // Read: All authenticated tenant roles can view assemblies
 router.get('/', bomController.listAssemblies);

@@ -9,21 +9,24 @@ export interface StockMovementReportItem {
   reason: string;
   createdBy: string;
   createdAt: string;
-  product: {
+  product?: {
     id: string;
     name: string;
     sku: string;
     category: string;
+    unitPrice?: number;
+    currentStock?: number;
   };
-  user: {
+  user?: {
     id: string;
     name: string;
     email: string;
-    role: string;
+    role?: string;
   };
 }
 
 export interface ReportQueryParams {
+  search?: string;
   productId?: string;
   type?: 'IN' | 'OUT';
   dateFrom?: string;
@@ -34,9 +37,12 @@ export interface ReportQueryParams {
 
 export interface ValuationByCategoryItem {
   category: string;
+  skuCount: number;
+  totalUnits: number;
+  totalStock?: number;
   totalValue: number;
   totalCostValue: number;
-  totalStock: number;
+  marginPercent: number;
 }
 
 export interface StockMovementTrendItem {
@@ -49,28 +55,51 @@ export interface TopMovingProductItem {
   productId: string;
   productName: string;
   sku: string;
+  category?: string;
+  currentStock: number;
+  unitPrice: number;
   totalQty: number;
+  estimatedRunwayDays: number;
 }
 
-export interface StockoutRiskRunwayItem {
+export interface DeadStockProductItem {
   productId: string;
   productName: string;
   sku: string;
+  category?: string;
   currentStock: number;
-  avgDailySales: number;
-  daysRunway: number;
+  lockedCost: number;
+  daysWithoutMovement: number;
+}
+
+export interface AbcTierData {
+  skuCount: number;
+  capitalValue: number;
+  percentage: number;
+  description: string;
 }
 
 export interface ReportsAnalyticsData {
+  timeRange: string;
   totalValuation: number;
   totalCostValuation: number;
+  totalUnits: number;
+  totalSkus: number;
   activeSkusCount: number;
   lowStockCount: number;
   outOfStockCount: number;
+  grossMarginPercent: number;
+  totalDeadStockCapital: number;
   valuationByCategory: ValuationByCategoryItem[];
   stockMovementTrend: StockMovementTrendItem[];
   topMovingProducts: TopMovingProductItem[];
-  stockoutRiskRunway: StockoutRiskRunwayItem[];
+  deadStockProducts: DeadStockProductItem[];
+  abcAnalysis: {
+    classA: AbcTierData;
+    classB: AbcTierData;
+    classC: AbcTierData;
+  };
+  stockoutRiskRunway: TopMovingProductItem[];
 }
 
 export const reportService = {
@@ -81,8 +110,10 @@ export const reportService = {
     return response.data;
   },
 
-  async getAnalytics(): Promise<ApiResponse<ReportsAnalyticsData>> {
-    const response = await api.get<ApiResponse<ReportsAnalyticsData>>('/reports/analytics');
+  async getAnalytics(range: '7d' | '15d' | '30d' | '90d' | '365d' = '30d'): Promise<ApiResponse<ReportsAnalyticsData>> {
+    const response = await api.get<ApiResponse<ReportsAnalyticsData>>('/reports/analytics', {
+      params: { range },
+    });
     return response.data;
   },
 };

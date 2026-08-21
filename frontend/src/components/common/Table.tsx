@@ -13,6 +13,7 @@
  */
 
 import React from 'react';
+import { Pagination } from './Pagination';
 
 export interface TableColumn<T> {
   /** Property key on the row object, or a unique string for render-only columns */
@@ -22,6 +23,17 @@ export interface TableColumn<T> {
   render?: (row: T) => React.ReactNode;
   /** Optional CSS class applied to both <th> and <td> */
   className?: string;
+}
+
+export interface TablePaginationConfig {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  pageSize?: number;
+  onPageSizeChange?: (size: number) => void;
+  pageSizeOptions?: number[];
+  totalItems?: number;
+  itemName?: string;
 }
 
 interface TableProps<T> {
@@ -36,6 +48,8 @@ interface TableProps<T> {
   onRowClick?: (row: T) => void;
   /** Optional additional CSS class on the wrapping <div> */
   className?: string;
+  /** Optional pagination config to render standardized pagination footer */
+  pagination?: TablePaginationConfig;
 }
 
 const SKELETON_CELL_STYLE: React.CSSProperties = {
@@ -54,6 +68,7 @@ export function Table<T>({
   emptyMessage = 'No results found.',
   onRowClick,
   className,
+  pagination,
 }: TableProps<T>): React.ReactElement {
   const rowClickable = Boolean(onRowClick);
 
@@ -118,6 +133,33 @@ export function Table<T>({
           )}
         </tbody>
       </table>
+
+      {pagination && pagination.totalItems !== undefined && pagination.totalItems > 0 && (
+        <div className="pagination-footer">
+          <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+            Showing{' '}
+            {Math.min(
+              (pagination.currentPage - 1) * (pagination.pageSize || 10) + 1,
+              pagination.totalItems
+            )}
+            –
+            {Math.min(
+              pagination.currentPage * (pagination.pageSize || 10),
+              pagination.totalItems
+            )}{' '}
+            of {pagination.totalItems} {pagination.itemName || 'items'}
+          </span>
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.onPageChange}
+            pageSize={pagination.pageSize}
+            onPageSizeChange={pagination.onPageSizeChange}
+            pageSizeOptions={pagination.pageSizeOptions || [10, 25, 30, 50, 100]}
+            totalItems={pagination.totalItems}
+          />
+        </div>
+      )}
     </div>
   );
 }

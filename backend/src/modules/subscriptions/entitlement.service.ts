@@ -9,11 +9,25 @@ export interface QuotaCheckResult {
   resource: string;
 }
 
+const featureCache = new Map<string, { features: string[]; cachedAt: number }>();
+const FEATURE_CACHE_TTL_MS = 30000; // 30 seconds
+
+export function invalidateFeatureCache(orgId?: string) {
+  if (orgId) featureCache.delete(orgId);
+  else featureCache.clear();
+}
+
 export const entitlementService = {
   /**
    * Checks if an organization has a specific feature enabled in its active subscription plan.
    */
   async hasFeature(organizationId: string, featureCode: string): Promise<boolean> {
+    const now = Date.now();
+    const cached = featureCache.get(organizationId);
+    if (cached && now - cached.cachedAt < FEATURE_CACHE_TTL_MS) {
+      return cached.features.includes(featureCode);
+    }
+
     const subscription = await prisma.subscription.findFirst({
       where: {
         organizationId,
@@ -26,10 +40,13 @@ export const entitlementService = {
     });
 
     if (!subscription || !subscription.plan) {
+      featureCache.set(organizationId, { features: [], cachedAt: now });
       return false;
     }
 
-    return subscription.plan.allowedFeatures.includes(featureCode);
+    const allowed = subscription.plan.allowedFeatures || [];
+    featureCache.set(organizationId, { features: allowed, cachedAt: now });
+    return allowed.includes(featureCode);
   },
 
   /**

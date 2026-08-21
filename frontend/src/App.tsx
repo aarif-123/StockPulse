@@ -150,7 +150,7 @@ const App: React.FC = () => {
             <Route
               path="reorder"
               element={
-                <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ADMIN', 'WAREHOUSE', 'ACCOUNTS', 'SALES']}>
+                <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ADMIN', 'ACCOUNTS', 'SALES']}>
                   <ReorderReport />
                 </ProtectedRoute>
               }
@@ -190,7 +190,7 @@ const App: React.FC = () => {
             <Route
               path="challans"
               element={
-                <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ADMIN', 'SALES', 'ACCOUNTS']}>
+                <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ADMIN', 'SALES', 'ACCOUNTS', 'WAREHOUSE']}>
                   <Challans />
                 </ProtectedRoute>
               }
@@ -206,7 +206,7 @@ const App: React.FC = () => {
             <Route
               path="challans/:id"
               element={
-                <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ADMIN', 'SALES', 'ACCOUNTS']}>
+                <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ADMIN', 'SALES', 'ACCOUNTS', 'WAREHOUSE']}>
                   <ChallanDetails />
                 </ProtectedRoute>
               }

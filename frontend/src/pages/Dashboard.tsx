@@ -111,8 +111,8 @@ export const Dashboard: React.FC = () => {
     void fetchAllDashboardData();
   }, [fetchAllDashboardData]);
 
-  const handleStockAddedSuccess = (updatedProduct: Product, addedQty: number) => {
-    toast.success(`Inward of ${addedQty} units recorded for ${updatedProduct.name}`);
+  const handleStockAddedSuccess = (updatedProduct: Product, addedQty: number, type: 'IN' | 'OUT') => {
+    toast.success(`${type === 'IN' ? 'Inward' : 'Outward'} of ${addedQty} units recorded for ${updatedProduct.name}`);
     void fetchAllDashboardData();
   };
 

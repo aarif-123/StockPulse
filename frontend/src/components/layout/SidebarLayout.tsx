@@ -48,14 +48,27 @@ export const SidebarLayout: React.FC = () => {
 
   const currentRole = activeOrg?.role || user.role || 'SALES';
   const isOrgAdmin = currentRole === 'ORG_ADMIN' || currentRole === 'ADMIN' || isSuperAdmin;
-  const showCustomers = ['ORG_ADMIN', 'ADMIN', 'SALES', 'ACCOUNTS'].includes(currentRole) || isSuperAdmin;
-  const showProducts = ['ORG_ADMIN', 'ADMIN', 'SALES', 'WAREHOUSE', 'ACCOUNTS'].includes(currentRole) || isSuperAdmin;
-  const showReorder = ['ORG_ADMIN', 'ADMIN', 'WAREHOUSE'].includes(currentRole) || isSuperAdmin;
-  const showAim = ['ORG_ADMIN', 'ADMIN', 'ACCOUNTS'].includes(currentRole) || isSuperAdmin;
-  const showStockTake = ['ORG_ADMIN', 'ADMIN', 'WAREHOUSE'].includes(currentRole) || isSuperAdmin;
-  const showAssemblies = ['ORG_ADMIN', 'ADMIN', 'WAREHOUSE'].includes(currentRole) || isSuperAdmin;
-  const showChallans = ['ORG_ADMIN', 'ADMIN', 'SALES', 'ACCOUNTS'].includes(currentRole) || isSuperAdmin;
-  const showReports = ['ORG_ADMIN', 'ADMIN', 'WAREHOUSE', 'ACCOUNTS'].includes(currentRole) || isSuperAdmin;
+  const allowedFeatures = activeOrg?.subscription?.allowedFeatures || [
+    'CORE_ERP',
+    'CRM',
+    'CHALLANS',
+    'BASIC_REPORTS',
+    'ADVANCED_INVENTORY',
+    'WHATSAPP_TX',
+    'EXPORT_EXCEL',
+    'BOM_ASSEMBLIES',
+  ];
+
+  const hasFeature = (feat: string) => isSuperAdmin || allowedFeatures.includes(feat);
+
+  const showCustomers = (['ORG_ADMIN', 'ADMIN', 'SALES', 'ACCOUNTS'].includes(currentRole) || isSuperAdmin) && hasFeature('CRM');
+  const showProducts = (['ORG_ADMIN', 'ADMIN', 'SALES', 'WAREHOUSE', 'ACCOUNTS'].includes(currentRole) || isSuperAdmin) && hasFeature('CORE_ERP');
+  const showReorder = ['ORG_ADMIN', 'ADMIN'].includes(currentRole) || isSuperAdmin;
+  const showAim = (['ORG_ADMIN', 'ADMIN', 'ACCOUNTS'].includes(currentRole) || isSuperAdmin) && hasFeature('ADVANCED_INVENTORY');
+  const showStockTake = (['ORG_ADMIN', 'ADMIN', 'WAREHOUSE'].includes(currentRole) || isSuperAdmin) && hasFeature('CORE_ERP');
+  const showAssemblies = (['ORG_ADMIN', 'ADMIN', 'WAREHOUSE'].includes(currentRole) || isSuperAdmin) && hasFeature('BOM_ASSEMBLIES');
+  const showChallans = (['ORG_ADMIN', 'ADMIN', 'SALES', 'ACCOUNTS', 'WAREHOUSE'].includes(currentRole) || isSuperAdmin) && hasFeature('CHALLANS');
+  const showReports = (['ORG_ADMIN', 'ADMIN', 'WAREHOUSE', 'ACCOUNTS'].includes(currentRole) || isSuperAdmin) && hasFeature('BASIC_REPORTS');
 
   return (
     <div className="layout-container">

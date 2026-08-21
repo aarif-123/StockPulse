@@ -44,6 +44,7 @@ const CreatePlanSchema = z.object({
   maxWarehouses: z.number().int().positive().optional(),
   maxTransactions: z.number().int().positive().optional(),
   allowedFeatures: z.array(z.string()).optional(),
+  isActive: z.boolean().optional(),
 });
 
 const UpdatePlanSchema = z.object({
@@ -328,6 +329,34 @@ export const platformController = {
 
       const result = await auditService.getPlatformLogs(search, scope, page, limit);
       res.status(200).json({ data: result.items, pagination: result.pagination });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async extendTrial(req: Request, res: Response, next: NextFunction) {
+    try {
+      const organizationId = req.params['id']!;
+      const days = req.body.days ? parseInt(req.body.days, 10) : 7;
+      const data = await platformService.extendTrial(organizationId, days, req.user!.userId);
+      res.status(200).json({ data, message: `Free trial extended by ${days} days.` });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async assignPlan(req: Request, res: Response, next: NextFunction) {
+    try {
+      const organizationId = req.params['id']!;
+      const { planId, billingCycle, status } = req.body;
+      const data = await platformService.assignPlan(
+        organizationId,
+        planId,
+        billingCycle,
+        status,
+        req.user!.userId
+      );
+      res.status(200).json({ data, message: 'Plan assigned directly to organization.' });
     } catch (err) {
       next(err);
     }

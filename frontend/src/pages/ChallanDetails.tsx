@@ -17,10 +17,14 @@ import {
 export const ChallanDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { hasRole } = useAuth();
+  const { hasRole, user, activeOrg } = useAuth();
   const { toasts, toast, removeToast } = useToast();
   const canModify = hasRole(['ORG_ADMIN', 'ADMIN', 'SALES']);
   const canCreate = hasRole(['ORG_ADMIN', 'ADMIN', 'SALES']);
+  const canConfirm = hasRole(['ORG_ADMIN', 'ADMIN', 'SALES', 'WAREHOUSE']);
+
+  const currentRole = activeOrg?.role || user?.role || 'SALES';
+  const isWarehouse = currentRole === 'WAREHOUSE';
 
   const [challan, setChallan] = useState<Challan | null>(null);
   const [loading, setLoading] = useState(true);
@@ -175,27 +179,31 @@ export const ChallanDetails: React.FC = () => {
               </button>
             )}
 
-            {challan.status === 'DRAFT' && canModify && (
+            {challan.status === 'DRAFT' && (
               <>
-                <button
-                  type="button"
-                  className="btn btn-danger btn-sm"
-                  onClick={handleCancel}
-                  disabled={actionLoading}
-                  id="cancel-challan-btn"
-                >
-                  <IconAlertTriangle size={13} /> Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-success btn-sm"
-                  onClick={handleConfirm}
-                  disabled={actionLoading}
-                  id="confirm-challan-btn"
-                >
-                  <IconCheck size={13} />
-                  {actionLoading ? 'Confirming...' : 'Confirm Delivery'}
-                </button>
+                {canModify && (
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm"
+                    onClick={handleCancel}
+                    disabled={actionLoading}
+                    id="cancel-challan-btn"
+                  >
+                    <IconAlertTriangle size={13} /> Cancel
+                  </button>
+                )}
+                {canConfirm && (
+                  <button
+                    type="button"
+                    className="btn btn-success btn-sm"
+                    onClick={handleConfirm}
+                    disabled={actionLoading}
+                    id="confirm-challan-btn"
+                  >
+                    <IconCheck size={13} />
+                    {actionLoading ? 'Confirming...' : 'Confirm Delivery'}
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -275,9 +283,9 @@ export const ChallanDetails: React.FC = () => {
                 <th style={{ width: '40px' }}>#</th>
                 <th>Item Description</th>
                 <th>SKU</th>
-                <th className="text-right">Unit Price</th>
+                {!isWarehouse && <th className="text-right">Unit Price</th>}
                 <th style={{ textAlign: 'center' }}>Qty</th>
-                <th className="text-right">Taxable Amt</th>
+                {!isWarehouse && <th className="text-right">Taxable Amt</th>}
               </tr>
             </thead>
             <tbody>
@@ -286,59 +294,70 @@ export const ChallanDetails: React.FC = () => {
                   <td style={{ color: 'var(--text-tertiary)' }}>{idx + 1}</td>
                   <td style={{ fontWeight: 600 }}>{item.productName}</td>
                   <td className="text-mono">{item.sku}</td>
-                  <td className="text-right">₹{Number(item.unitPrice).toFixed(2)}</td>
+                  {!isWarehouse && <td className="text-right">₹{Number(item.unitPrice).toFixed(2)}</td>}
                   <td style={{ textAlign: 'center', fontWeight: 600 }}>{item.quantity}</td>
-                  <td className="text-right" style={{ fontWeight: 600 }}>
-                    ₹{(Number(item.unitPrice) * item.quantity).toFixed(2)}
-                  </td>
+                  {!isWarehouse && (
+                    <td className="text-right" style={{ fontWeight: 600 }}>
+                      ₹{(Number(item.unitPrice) * item.quantity).toFixed(2)}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              <tr>
-                <td colSpan={4} style={{ textAlign: 'right', fontWeight: 600 }}>Subtotal:</td>
-                <td style={{ textAlign: 'center', fontWeight: 700 }}>{challan.totalQuantity} units</td>
-                <td className="text-right" style={{ fontWeight: 700 }}>₹{taxDetails.subtotal.toFixed(2)}</td>
-              </tr>
-
-              {taxDetails.isIntraState ? (
+              {isWarehouse ? (
+                <tr>
+                  <td colSpan={3} style={{ textAlign: 'right', fontWeight: 600 }}>Total Quantity:</td>
+                  <td style={{ textAlign: 'center', fontWeight: 700 }}>{challan.totalQuantity} units</td>
+                </tr>
+              ) : (
                 <>
                   <tr>
-                    <td colSpan={5} style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
-                      Central GST (CGST {(taxDetails.cgstRate * 100).toFixed(1)}%):
-                    </td>
-                    <td className="text-right" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-                      +₹{taxDetails.cgstAmount.toFixed(2)}
-                    </td>
+                    <td colSpan={4} style={{ textAlign: 'right', fontWeight: 600 }}>Subtotal:</td>
+                    <td style={{ textAlign: 'center', fontWeight: 700 }}>{challan.totalQuantity} units</td>
+                    <td className="text-right" style={{ fontWeight: 700 }}>₹{taxDetails.subtotal.toFixed(2)}</td>
                   </tr>
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
-                      State GST (SGST {(taxDetails.sgstRate * 100).toFixed(1)}%):
+
+                  {taxDetails.isIntraState ? (
+                    <>
+                      <tr>
+                        <td colSpan={5} style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
+                          Central GST (CGST {(taxDetails.cgstRate * 100).toFixed(1)}%):
+                        </td>
+                        <td className="text-right" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                          +₹{taxDetails.cgstAmount.toFixed(2)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td colSpan={5} style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
+                          State GST (SGST {(taxDetails.sgstRate * 100).toFixed(1)}%):
+                        </td>
+                        <td className="text-right" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                          +₹{taxDetails.sgstAmount.toFixed(2)}
+                        </td>
+                      </tr>
+                    </>
+                  ) : (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
+                        Integrated GST (IGST {(taxDetails.igstRate * 100).toFixed(1)}%):
+                      </td>
+                      <td className="text-right" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                        +₹{taxDetails.igstAmount.toFixed(2)}
+                      </td>
+                    </tr>
+                  )}
+
+                  <tr style={{ background: 'var(--bg-tertiary)', fontSize: '15px' }}>
+                    <td colSpan={5} style={{ textAlign: 'right', fontWeight: 800 }}>
+                      Total Invoice Amount (INR):
                     </td>
-                    <td className="text-right" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-                      +₹{taxDetails.sgstAmount.toFixed(2)}
+                    <td className="text-right" style={{ fontWeight: 800, color: 'var(--primary-hover)' }}>
+                      ₹{taxDetails.grandTotal.toFixed(2)}
                     </td>
                   </tr>
                 </>
-              ) : (
-                <tr>
-                  <td colSpan={5} style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
-                    Integrated GST (IGST {(taxDetails.igstRate * 100).toFixed(1)}%):
-                  </td>
-                  <td className="text-right" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-                    +₹{taxDetails.igstAmount.toFixed(2)}
-                  </td>
-                </tr>
               )}
-
-              <tr style={{ background: 'var(--bg-tertiary)', fontSize: '15px' }}>
-                <td colSpan={5} style={{ textAlign: 'right', fontWeight: 800 }}>
-                  Total Invoice Amount (INR):
-                </td>
-                <td className="text-right" style={{ fontWeight: 800, color: 'var(--primary-hover)' }}>
-                  ₹{taxDetails.grandTotal.toFixed(2)}
-                </td>
-              </tr>
             </tfoot>
           </table>
         </div>

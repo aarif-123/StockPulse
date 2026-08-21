@@ -15,9 +15,11 @@ import { IconPlus, IconAlertTriangle } from '../components/common/Icons';
 
 export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { hasRole } = useAuth();
+  const { hasRole, user, activeOrg } = useAuth();
   const { toasts, toast, removeToast } = useToast();
   const canAdjustStock = hasRole(['ORG_ADMIN', 'ADMIN', 'WAREHOUSE']);
+  const currentRole = activeOrg?.role || user?.role || 'SALES';
+  const isWarehouse = currentRole === 'WAREHOUSE';
 
   // States
   const [product, setProduct] = useState<Product | null>(null);
@@ -29,6 +31,12 @@ export const ProductDetails: React.FC = () => {
   const [movPage, setMovPage] = useState(1);
   const [movTotalPages, setMovTotalPages] = useState(1);
   const [movTotalItems, setMovTotalItems] = useState(0);
+  const [movPageSize, setMovPageSize] = useState<number>(10);
+
+  const handleMovPageSizeChange = (newSize: number) => {
+    setMovPageSize(newSize);
+    setMovPage(1);
+  };
 
   // Movement dialog forms
   const [isMovementOpen, setIsMovementOpen] = useState(false);
@@ -51,7 +59,7 @@ export const ProductDetails: React.FC = () => {
   const fetchProductMovements = useCallback(async () => {
     if (!id) return;
     try {
-      const movRes = await productService.getStockMovements(id, { page: movPage, limit: 5 });
+      const movRes = await productService.getStockMovements(id, { page: movPage, limit: movPageSize });
       setMovements(movRes.data);
       if (movRes.pagination) {
         setMovTotalPages(movRes.pagination.totalPages);
@@ -60,7 +68,7 @@ export const ProductDetails: React.FC = () => {
     } catch (err) {
       setError(handleApiError(err));
     }
-  }, [id, movPage]);
+  }, [id, movPage, movPageSize]);
 
   useEffect(() => {
     let mounted = true;
@@ -200,10 +208,12 @@ export const ProductDetails: React.FC = () => {
                 <span className="info-label">Storage Location</span>
                 <span className="info-value">{product.warehouseLocation}</span>
               </div>
-              <div className="info-item">
-                <span className="info-label">Unit Catalog Price</span>
-                <span className="info-value">₹{Number(product.unitPrice).toFixed(2)}</span>
-              </div>
+              {!isWarehouse && (
+                <div className="info-item">
+                  <span className="info-label">Unit Catalog Price</span>
+                  <span className="info-value">₹{Number(product.unitPrice).toFixed(2)}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -332,18 +342,19 @@ export const ProductDetails: React.FC = () => {
                 </table>
 
                 {/* Sub pagination */}
-                <div
-                  className="pagination-footer"
-                  style={{
-                    padding: '12px 16px',
-                    borderTop: '1px solid var(--border-color)',
-                  }}
-                >
-                  <span className="fs-12">Total: {movTotalItems} movements</span>
+                <div className="pagination-footer">
+                  <span>
+                    Showing {Math.min((movPage - 1) * movPageSize + 1, movTotalItems)}–
+                    {Math.min(movPage * movPageSize, movTotalItems)} of {movTotalItems} movements
+                  </span>
                   <Pagination
                     currentPage={movPage}
                     totalPages={movTotalPages}
                     onPageChange={setMovPage}
+                    pageSize={movPageSize}
+                    onPageSizeChange={handleMovPageSizeChange}
+                    pageSizeOptions={[5, 10, 25, 50]}
+                    totalItems={movTotalItems}
                   />
                 </div>
               </div>

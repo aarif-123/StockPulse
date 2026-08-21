@@ -35,6 +35,7 @@ export const Challans: React.FC = () => {
   const { toasts, toast, removeToast } = useToast();
   const canModify = hasRole(['ORG_ADMIN', 'ADMIN', 'SALES']);
   const canCreate = hasRole(['ORG_ADMIN', 'ADMIN', 'SALES']);
+  const canConfirm = hasRole(['ORG_ADMIN', 'ADMIN', 'SALES', 'WAREHOUSE']);
 
   const [challans, setChallans] = useState<Challan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -311,7 +312,7 @@ export const Challans: React.FC = () => {
             Slip
           </button>
 
-          {c.status === 'DRAFT' && canModify && (
+          {c.status === 'DRAFT' && canConfirm && (
             <button
               type="button"
               className="btn btn-success btn-sm"
@@ -610,7 +611,7 @@ export const Challans: React.FC = () => {
           />
 
           {!loading && totalItems > 0 && (
-            <div className="pagination-footer" style={{ marginTop: '14px' }}>
+            <div className="pagination-footer">
               <span>
                 Showing {Math.min((page - 1) * pageSize + 1, totalItems)}–
                 {Math.min(page * pageSize, totalItems)} of {totalItems} challans
@@ -698,7 +699,7 @@ export const Challans: React.FC = () => {
           </div>
 
           {!loading && totalItems > 0 && (
-            <div className="pagination-footer" style={{ marginTop: '16px' }}>
+            <div className="pagination-footer" style={{ marginTop: '20px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
               <span>
                 Showing {Math.min((page - 1) * pageSize + 1, totalItems)}–
                 {Math.min(page * pageSize, totalItems)} of {totalItems} challans
