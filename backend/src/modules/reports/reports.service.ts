@@ -379,6 +379,66 @@ export async function getReportsAnalytics(organizationId: string, range = '30d')
 
   const totalDeadStockCapital = deadStockProducts.reduce((sum, p) => sum + p.lockedCost, 0);
 
+  // Inventory Health Matrix
+  const criticalReorderCount = lowStockCount + outOfStockCount;
+  const criticalReorderCapital = abcProducts
+    .filter((p) => Number(p.currentStock) <= 10)
+    .reduce((sum, p) => sum + Number(p.costValuation || 0), 0);
+
+  const excessOverstockItems = abcProducts.filter((p) => Number(p.currentStock) > 150);
+  const excessOverstockCapital = excessOverstockItems.reduce((sum, p) => sum + Number(p.costValuation || 0), 0);
+
+  const inventoryHealthMatrix = {
+    criticalReorder: {
+      skuCount: criticalReorderCount,
+      capitalExposure: Math.round(criticalReorderCapital),
+      status: criticalReorderCount > 0 ? 'CRITICAL' : 'OPTIMAL',
+      description: 'SKUs at or below minimum threshold (< 7d runway)',
+    },
+    healthyBuffer: {
+      skuCount: Math.max(0, activeSkusCount - criticalReorderCount - deadStockRows.length),
+      status: 'STABLE',
+      description: 'Active SKUs with balanced 15–45 day demand buffers',
+    },
+    excessOverstock: {
+      skuCount: excessOverstockItems.length,
+      capitalExposure: Math.round(excessOverstockCapital),
+      status: 'ATTENTION',
+      description: 'High unit concentration with > 90d inventory runway',
+    },
+    deadStockIdle: {
+      skuCount: deadStockRows.length,
+      capitalExposure: totalDeadStockCapital,
+      status: totalDeadStockCapital > 0 ? 'LOCKED_CAPITAL' : 'HEALTHY',
+      description: 'SKUs with zero outbound activity in the last 45+ days',
+    },
+  };
+
+  // Stock Flow Metrics
+  const totalInwardUnits = stockMovementTrend.reduce((sum, t) => sum + t.stockIn, 0);
+  const totalOutwardUnits = stockMovementTrend.reduce((sum, t) => sum + t.stockOut, 0);
+  const totalFlowVolume = totalInwardUnits + totalOutwardUnits || 1;
+
+  const peakFlowDays = [...stockMovementTrend]
+    .sort((a, b) => b.stockIn + b.stockOut - (a.stockIn + a.stockOut))
+    .slice(0, 3)
+    .map((d) => ({
+      date: d.date,
+      inbound: d.stockIn,
+      outbound: d.stockOut,
+      totalVolume: d.stockIn + d.stockOut,
+      netDelta: d.stockIn - d.stockOut,
+    }));
+
+  const stockFlowMetrics = {
+    totalInwardUnits,
+    totalOutwardUnits,
+    netThroughput: totalInwardUnits - totalOutwardUnits,
+    inflowSharePercent: Math.round((totalInwardUnits / totalFlowVolume) * 100),
+    outflowSharePercent: Math.round((totalOutwardUnits / totalFlowVolume) * 100),
+    peakFlowDays,
+  };
+
   return {
     timeRange: range,
     totalValuation,
@@ -390,6 +450,8 @@ export async function getReportsAnalytics(organizationId: string, range = '30d')
     outOfStockCount,
     grossMarginPercent,
     totalDeadStockCapital,
+    inventoryHealthMatrix,
+    stockFlowMetrics,
     valuationByCategory,
     stockMovementTrend,
     topMovingProducts,

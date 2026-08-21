@@ -89,6 +89,47 @@ export interface AbcTierData {
   }>;
 }
 
+export interface InventoryHealthMatrix {
+  criticalReorder: {
+    skuCount: number;
+    capitalExposure: number;
+    status: string;
+    description: string;
+  };
+  healthyBuffer: {
+    skuCount: number;
+    status: string;
+    description: string;
+  };
+  excessOverstock: {
+    skuCount: number;
+    capitalExposure: number;
+    status: string;
+    description: string;
+  };
+  deadStockIdle: {
+    skuCount: number;
+    capitalExposure: number;
+    status: string;
+    description: string;
+  };
+}
+
+export interface StockFlowMetrics {
+  totalInwardUnits: number;
+  totalOutwardUnits: number;
+  netThroughput: number;
+  inflowSharePercent: number;
+  outflowSharePercent: number;
+  peakFlowDays: Array<{
+    date: string;
+    inbound: number;
+    outbound: number;
+    totalVolume: number;
+    netDelta: number;
+  }>;
+}
+
 export interface ReportsAnalyticsData {
   timeRange: string;
   totalValuation: number;
@@ -100,11 +141,13 @@ export interface ReportsAnalyticsData {
   outOfStockCount: number;
   grossMarginPercent: number;
   totalDeadStockCapital: number;
+  inventoryHealthMatrix?: InventoryHealthMatrix;
+  stockFlowMetrics?: StockFlowMetrics;
   valuationByCategory: ValuationByCategoryItem[];
   stockMovementTrend: StockMovementTrendItem[];
   topMovingProducts: TopMovingProductItem[];
   deadStockProducts: DeadStockProductItem[];
-  abcAnalysis: {
+  abcAnalysis?: {
     classA: AbcTierData;
     classB: AbcTierData;
     classC: AbcTierData;

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { reportService, type StockMovementReportItem, type ReportsAnalyticsData, type AbcTierData } from '../services/report.service';
+import { reportService, type StockMovementReportItem, type ReportsAnalyticsData } from '../services/report.service';
 import { productService } from '../services/product.service';
 import { handleApiError } from '../services/api';
 import type { Product } from '../types';
@@ -43,23 +43,11 @@ export const Reports: React.FC = () => {
     return saved ? Math.min(Math.max(parseInt(saved, 10) || 20, 5), 100) : 20;
   });
 
-  // Interactive Modal States
-  const [selectedAbcTier, setSelectedAbcTier] = useState<{
-    tierName: string;
-    tierKey: 'classA' | 'classB' | 'classC';
-    data: AbcTierData;
-    color: string;
-  } | null>(null);
-  const [abcModalSearch, setAbcModalSearch] = useState('');
-
   const [selectedMovement, setSelectedMovement] = useState<StockMovementReportItem | null>(null);
 
   // Category Sort state
   const [catSortField, setCatSortField] = useState<'category' | 'skuCount' | 'totalUnits' | 'totalCostValue' | 'totalValue' | 'marginPercent'>('totalCostValue');
   const [catSortAsc, setCatSortAsc] = useState<boolean>(false);
-
-  // Hovered trend chart day
-  const [hoveredTrendDay, setHoveredTrendDay] = useState<{ date: string; stockIn: number; stockOut: number } | null>(null);
 
   const handlePageSizeChange = (newSize: number) => {
     setPageSize(newSize);
@@ -139,7 +127,6 @@ export const Reports: React.FC = () => {
     setMovementType('');
     setPage(1);
     setActiveTab('audit');
-    if (selectedAbcTier) setSelectedAbcTier(null);
   };
 
   const handleExportCsv = () => {
@@ -258,21 +245,6 @@ export const Reports: React.FC = () => {
     ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, totalItems)} of ${totalItems}`
     : '';
 
-  // Max value calculation for Volume Trend Chart
-  const maxTrendVal = useMemo(() => {
-    if (!analyticsData) return 10;
-    const values = analyticsData.stockMovementTrend.map((t) => Math.max(t.stockIn, t.stockOut));
-    return Math.max(...values, 10);
-  }, [analyticsData]);
-
-  // Aggregate Trend Total Units
-  const trendTotals = useMemo(() => {
-    if (!analyticsData) return { totalIn: 0, totalOut: 0, net: 0 };
-    const totalIn = analyticsData.stockMovementTrend.reduce((sum, t) => sum + t.stockIn, 0);
-    const totalOut = analyticsData.stockMovementTrend.reduce((sum, t) => sum + t.stockOut, 0);
-    return { totalIn, totalOut, net: totalIn - totalOut };
-  }, [analyticsData]);
-
   // Sorted Categories
   const sortedCategories = useMemo(() => {
     if (!analyticsData) return [];
@@ -300,21 +272,11 @@ export const Reports: React.FC = () => {
     }
   };
 
-  // Filtered ABC Tier items in modal
-  const filteredAbcItems = useMemo(() => {
-    if (!selectedAbcTier || !selectedAbcTier.data.items) return [];
-    if (!abcModalSearch.trim()) return selectedAbcTier.data.items;
-    const q = abcModalSearch.toLowerCase().trim();
-    return selectedAbcTier.data.items.filter(
-      (item) => item.name.toLowerCase().includes(q) || item.sku.toLowerCase().includes(q) || (item.category && item.category.toLowerCase().includes(q))
-    );
-  }, [selectedAbcTier, abcModalSearch]);
-
   return (
     <div>
       <PageHeader
         title="Enterprise Inventory Intelligence & Reports"
-        subtitle="Scalable analytics, working capital locks, ABC Pareto classifications, and immutable stock audit logs."
+        subtitle="Scalable analytics, working capital locks, stock flow throughput, and immutable audit logs."
         actions={
           activeTab === 'audit' && movements.length > 0 && (
             <button className="btn btn-secondary btn-sm" onClick={handleExportCsv} id="export-reports-btn">
@@ -343,7 +305,7 @@ export const Reports: React.FC = () => {
             className={`status-tab ${activeTab === 'analytics' ? 'status-tab--active' : ''}`}
             onClick={() => setActiveTab('analytics')}
           >
-            <IconBarChart size={15} /> Valuation & Capital
+            <IconBarChart size={15} /> Valuation & Capital Flow
           </button>
           <button
             className={`status-tab ${activeTab === 'velocity' ? 'status-tab--active' : ''}`}
@@ -414,7 +376,7 @@ export const Reports: React.FC = () => {
         )}
       </div>
 
-      {/* ── 1. EXECUTIVE VALUATION & ABC TAB ─────────────────────────────────── */}
+      {/* ── 1. EXECUTIVE VALUATION & HEALTH MATRIX TAB ───────────────────────── */}
       {activeTab === 'analytics' && (
         <>
           {loadingAnalytics ? (
@@ -489,273 +451,213 @@ export const Reports: React.FC = () => {
                 </div>
               </div>
 
-              {/* ABC Inventory Pareto Analysis Section (Interactive Cards) */}
+              {/* 🎯 Inventory Health & Reorder Urgency Command Center */}
               <div className="card" style={{ padding: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
                   <div>
                     <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      🏆 ABC Inventory Pareto Analysis (80 / 15 / 5 Rule)
+                      🛡️ Inventory Health & Working Capital Allocation
                     </h3>
                     <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                      Click any classification tier card to inspect the exact SKUs and capital allocation.
+                      Real-time risk status and capital concentration across your warehouse portfolio.
                     </p>
                   </div>
-                  <span style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', fontWeight: 600 }}>
-                    💡 Click card to view SKU breakdown
-                  </span>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-                  {/* Class A */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+                  {/* Pillar 1: Critical Reorder */}
                   <div
-                    onClick={() =>
-                      setSelectedAbcTier({
-                        tierName: 'Class A — Critical Capital Drivers',
-                        tierKey: 'classA',
-                        data: analyticsData.abcAnalysis.classA,
-                        color: '#22c55e',
-                      })
-                    }
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.06)',
+                      border: '1px solid rgba(239, 68, 68, 0.25)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '18px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#f87171', textTransform: 'uppercase' }}>
+                        🚨 Critical Reorder
+                      </span>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#f87171', background: 'rgba(239,68,68,0.15)', padding: '2px 6px', borderRadius: '4px' }}>
+                        {analyticsData.inventoryHealthMatrix?.criticalReorder.status || 'ATTENTION'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                      {analyticsData.inventoryHealthMatrix?.criticalReorder.skuCount ?? analyticsData.lowStockCount} <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 500 }}>SKUs</span>
+                    </div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '6px 0 0 0' }}>
+                      {analyticsData.inventoryHealthMatrix?.criticalReorder.description || 'Stock at or below minimum threshold (< 7d runway)'}
+                    </p>
+                  </div>
+
+                  {/* Pillar 2: Healthy Buffer */}
+                  <div
                     style={{
                       background: 'rgba(34, 197, 94, 0.06)',
-                      border: '1px solid rgba(34, 197, 94, 0.3)',
+                      border: '1px solid rgba(34, 197, 94, 0.25)',
                       borderRadius: 'var(--radius-md)',
-                      padding: '20px',
-                      cursor: 'pointer',
-                      transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(34, 197, 94, 0.15)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = 'none';
+                      padding: '18px',
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#22c55e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        ● CLASS A — CRITICAL VALUE
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#22c55e', textTransform: 'uppercase' }}>
+                        🟢 Healthy Buffer
                       </span>
-                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#22c55e', backgroundColor: 'rgba(34, 197, 94, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
-                        {analyticsData.abcAnalysis.classA.percentage}% Capital
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#22c55e', background: 'rgba(34,197,94,0.15)', padding: '2px 6px', borderRadius: '4px' }}>
+                        OPTIMAL
                       </span>
                     </div>
-                    <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                      {formatINR(analyticsData.abcAnalysis.classA.capitalValue)}
+                    <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                      {analyticsData.inventoryHealthMatrix?.healthyBuffer.skuCount ?? Math.max(0, analyticsData.activeSkusCount - analyticsData.lowStockCount)} <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 500 }}>SKUs</span>
                     </div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>{analyticsData.abcAnalysis.classA.skuCount} High-value SKUs</span>
-                      <span style={{ color: '#22c55e', fontWeight: 700, fontSize: '12px' }}>Inspect ➔</span>
-                    </div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '6px 0 0 0' }}>
+                      {analyticsData.inventoryHealthMatrix?.healthyBuffer.description || 'Active products with balanced 15–45 day demand buffers'}
+                    </p>
                   </div>
 
-                  {/* Class B */}
+                  {/* Pillar 3: Overstock / Excess */}
                   <div
-                    onClick={() =>
-                      setSelectedAbcTier({
-                        tierName: 'Class B — Moderate Turnover Tier',
-                        tierKey: 'classB',
-                        data: analyticsData.abcAnalysis.classB,
-                        color: '#f59e0b',
-                      })
-                    }
                     style={{
                       background: 'rgba(245, 158, 11, 0.06)',
-                      border: '1px solid rgba(245, 158, 11, 0.3)',
+                      border: '1px solid rgba(245, 158, 11, 0.25)',
                       borderRadius: 'var(--radius-md)',
-                      padding: '20px',
-                      cursor: 'pointer',
-                      transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(245, 158, 11, 0.15)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = 'none';
+                      padding: '18px',
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        ● CLASS B — MODERATE VALUE
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase' }}>
+                        ⚠️ Excess Overstock
                       </span>
-                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
-                        {analyticsData.abcAnalysis.classB.percentage}% Capital
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.15)', padding: '2px 6px', borderRadius: '4px' }}>
+                        MONITOR
                       </span>
                     </div>
-                    <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                      {formatINR(analyticsData.abcAnalysis.classB.capitalValue)}
+                    <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                      {analyticsData.inventoryHealthMatrix?.excessOverstock.skuCount ?? 0} <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 500 }}>SKUs</span>
                     </div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>{analyticsData.abcAnalysis.classB.skuCount} Intermediate SKUs</span>
-                      <span style={{ color: '#f59e0b', fontWeight: 700, fontSize: '12px' }}>Inspect ➔</span>
-                    </div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '6px 0 0 0' }}>
+                      {analyticsData.inventoryHealthMatrix?.excessOverstock.description || 'High unit concentration with > 90d inventory runway'}
+                    </p>
                   </div>
 
-                  {/* Class C */}
+                  {/* Pillar 4: Dead Stock Locked Capital */}
                   <div
-                    onClick={() =>
-                      setSelectedAbcTier({
-                        tierName: 'Class C — Bulk / Low-Cost Tier',
-                        tierKey: 'classC',
-                        data: analyticsData.abcAnalysis.classC,
-                        color: '#38bdf8',
-                      })
-                    }
                     style={{
                       background: 'rgba(56, 189, 248, 0.06)',
-                      border: '1px solid rgba(56, 189, 248, 0.3)',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
                       borderRadius: 'var(--radius-md)',
-                      padding: '20px',
-                      cursor: 'pointer',
-                      transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(56, 189, 248, 0.15)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = 'none';
+                      padding: '18px',
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        ● CLASS C — BULK / LOW COST
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase' }}>
+                        🧊 Idle Capital Lock
                       </span>
-                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
-                        {analyticsData.abcAnalysis.classC.percentage}% Capital
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', background: 'rgba(56,189,248,0.15)', padding: '2px 6px', borderRadius: '4px' }}>
+                        {analyticsData.deadStockProducts.length} SKUs
                       </span>
                     </div>
-                    <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                      {formatINR(analyticsData.abcAnalysis.classC.capitalValue)}
+                    <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                      {formatINR(analyticsData.totalDeadStockCapital)}
                     </div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>{analyticsData.abcAnalysis.classC.skuCount} Bulk SKUs</span>
-                      <span style={{ color: '#38bdf8', fontWeight: 700, fontSize: '12px' }}>Inspect ➔</span>
-                    </div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '6px 0 0 0' }}>
+                      Zero outbound activity recorded over the last 45+ days
+                    </p>
                   </div>
                 </div>
               </div>
 
-              {/* Movement Volume Trend Chart with Interactive Tooltips */}
-              <div className="card" style={{ padding: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+              {/* 📊 Stock Flow Throughput & Velocity Summary */}
+              <div className="card" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      Inbound Receipts vs Outbound Client Dispatches
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      ⚡ Warehouse Material Flow & Throughput Velocity ({timeRange.toUpperCase()})
                     </h3>
-                    <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                      Daily stock volume flow over the selected {timeRange.toUpperCase()} window (Hover on bars for details)
+                    <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                      Comprehensive material intake vs client fulfillment telemetry over the selected period.
                     </p>
-                  </div>
-
-                  {/* Summary Totals & Legend */}
-                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--success)' }}>
-                      <div style={{ width: '10px', height: '10px', backgroundColor: 'var(--success)', borderRadius: '2px' }} />
-                      Total IN: +{trendTotals.totalIn.toLocaleString()}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--danger)' }}>
-                      <div style={{ width: '10px', height: '10px', backgroundColor: 'var(--danger)', borderRadius: '2px' }} />
-                      Total OUT: -{trendTotals.totalOut.toLocaleString()}
-                    </div>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: trendTotals.net >= 0 ? '#4ade80' : '#f87171' }}>
-                      Net: {trendTotals.net >= 0 ? `+${trendTotals.net.toLocaleString()}` : trendTotals.net.toLocaleString()}
-                    </div>
                   </div>
                 </div>
 
-                {/* Hover Tooltip display box */}
-                {hoveredTrendDay && (
-                  <div
-                    style={{
-                      padding: '8px 14px',
-                      backgroundColor: 'var(--bg-elevated)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: 'var(--radius-sm)',
-                      marginBottom: '12px',
-                      display: 'flex',
-                      gap: '16px',
-                      alignItems: 'center',
-                      fontSize: '12px',
-                    }}
-                  >
-                    <strong style={{ color: 'var(--text-primary)' }}>📅 {hoveredTrendDay.date}</strong>
-                    <span style={{ color: 'var(--success)', fontWeight: 600 }}>Stock Inward: +{hoveredTrendDay.stockIn.toLocaleString()} units</span>
-                    <span style={{ color: 'var(--danger)', fontWeight: 600 }}>Stock Outward: -{hoveredTrendDay.stockOut.toLocaleString()} units</span>
-                    <span style={{ color: hoveredTrendDay.stockIn - hoveredTrendDay.stockOut >= 0 ? '#4ade80' : '#f87171', fontWeight: 700 }}>
-                      Net Delta: {hoveredTrendDay.stockIn - hoveredTrendDay.stockOut >= 0 ? `+${hoveredTrendDay.stockIn - hoveredTrendDay.stockOut}` : hoveredTrendDay.stockIn - hoveredTrendDay.stockOut}
+                {/* Flow Throughput Summary Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                  <div style={{ padding: '16px', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                    <span style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>📥 Total Material Inflow</span>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--success)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+                      +{analyticsData.stockFlowMetrics?.totalInwardUnits.toLocaleString() ?? 0} <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontWeight: 500 }}>units</span>
+                    </div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      {analyticsData.stockFlowMetrics?.inflowSharePercent ?? 50}% of total volume
                     </span>
                   </div>
-                )}
 
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-end',
-                    gap: '6px',
-                    height: '180px',
-                    padding: '12px 0',
-                    borderBottom: '1px solid var(--border-color)',
-                    overflowX: 'auto',
-                  }}
-                >
-                  {analyticsData.stockMovementTrend.map((t) => {
-                    const inPct = Math.round((t.stockIn / maxTrendVal) * 100);
-                    const outPct = Math.round((t.stockOut / maxTrendVal) * 100);
-                    const isHovered = hoveredTrendDay?.date === t.date;
+                  <div style={{ padding: '16px', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                    <span style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>📤 Total Client Dispatches</span>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--danger)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+                      -{analyticsData.stockFlowMetrics?.totalOutwardUnits.toLocaleString() ?? 0} <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontWeight: 500 }}>units</span>
+                    </div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      {analyticsData.stockFlowMetrics?.outflowSharePercent ?? 50}% of total volume
+                    </span>
+                  </div>
 
-                    return (
+                  <div style={{ padding: '16px', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                    <span style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>⚖️ Net Stock Delta</span>
+                    <div
+                      style={{
+                        fontSize: '22px',
+                        fontWeight: 800,
+                        fontFamily: 'var(--font-mono)',
+                        marginTop: '4px',
+                        color: (analyticsData.stockFlowMetrics?.netThroughput ?? 0) >= 0 ? '#4ade80' : '#f87171',
+                      }}
+                    >
+                      {(analyticsData.stockFlowMetrics?.netThroughput ?? 0) >= 0
+                        ? `+${(analyticsData.stockFlowMetrics?.netThroughput ?? 0).toLocaleString()}`
+                        : (analyticsData.stockFlowMetrics?.netThroughput ?? 0).toLocaleString()}{' '}
+                      <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontWeight: 500 }}>units</span>
+                    </div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      {(analyticsData.stockFlowMetrics?.netThroughput ?? 0) >= 0 ? 'Net inventory accumulation' : 'Net inventory depletion'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Peak Flow Activity Timeline */}
+                <div>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '13.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    🔥 Top Peak Activity Flow Days
+                  </h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+                    {(analyticsData.stockFlowMetrics?.peakFlowDays || []).map((p, idx) => (
                       <div
-                        key={t.date}
-                        onMouseEnter={() => setHoveredTrendDay(t)}
-                        onMouseLeave={() => setHoveredTrendDay(null)}
+                        key={idx}
                         style={{
-                          flex: 1,
-                          minWidth: '28px',
+                          padding: '12px 16px',
+                          backgroundColor: 'var(--bg-secondary)',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border-color)',
                           display: 'flex',
-                          flexDirection: 'column',
+                          justifyContent: 'space-between',
                           alignItems: 'center',
-                          height: '100%',
-                          justifyContent: 'flex-end',
-                          cursor: 'pointer',
-                          backgroundColor: isHovered ? 'rgba(255,255,255,0.04)' : 'transparent',
-                          borderRadius: '4px',
-                          padding: '2px',
-                          transition: 'background-color 0.15s ease',
                         }}
                       >
-                        <div style={{ display: 'flex', gap: '2px', alignItems: 'flex-end', width: '100%', height: '100%', justifyContent: 'center' }}>
-                          <div
-                            style={{
-                              width: '45%',
-                              height: `${Math.max(inPct, 2)}%`,
-                              backgroundColor: 'var(--success)',
-                              borderRadius: '2px 2px 0 0',
-                              opacity: isHovered ? 1 : 0.85,
-                              transition: 'height 0.2s ease',
-                            }}
-                          />
-                          <div
-                            style={{
-                              width: '45%',
-                              height: `${Math.max(outPct, 2)}%`,
-                              backgroundColor: 'var(--danger)',
-                              borderRadius: '2px 2px 0 0',
-                              opacity: isHovered ? 1 : 0.85,
-                              transition: 'height 0.2s ease',
-                            }}
-                          />
+                        <div>
+                          <strong style={{ color: 'var(--text-primary)', fontSize: '13px' }}>📅 {p.date}</strong>
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                            <span style={{ color: 'var(--success)' }}>+{p.inbound} in</span> · <span style={{ color: 'var(--danger)' }}>-{p.outbound} out</span>
+                          </div>
                         </div>
-                        <div style={{ fontSize: '10px', color: isHovered ? 'var(--text-primary)' : 'var(--text-tertiary)', marginTop: '6px', textAlign: 'center', fontWeight: isHovered ? 700 : 400 }}>
-                          {t.date}
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)' }}>
+                            {p.totalVolume.toLocaleString()}
+                          </span>
+                          <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', display: 'block' }}>total units flow</span>
                         </div>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1122,25 +1024,26 @@ export const Reports: React.FC = () => {
               emptyMessage="No stock movements match the specified query filters."
             />
 
-            {/* Pagination Controls */}
+            {/* Pagination Controls - Shifted Left/Center with breathing room from Chatbot Widget */}
             {!loadingAudit && movements.length > 0 && (
               <div
                 style={{
-                  padding: '12px 16px',
+                  padding: '14px 20px',
                   borderTop: '1px solid var(--border-color)',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   flexWrap: 'wrap',
-                  gap: '12px',
+                  gap: '16px',
+                  paddingRight: '120px', // Extra right padding prevents overlapping with floating DOST AI widget
                 }}
               >
                 <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
                   Showing <strong style={{ color: 'var(--text-primary)' }}>{showRange}</strong> audit movements
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>
                     <span>Rows per page:</span>
                     <select
                       value={pageSize}
@@ -1169,156 +1072,6 @@ export const Reports: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* ── INTERACTIVE MODAL: ABC TIER INSPECTOR ────────────────────────────── */}
-      {selectedAbcTier && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '20px',
-          }}
-          onClick={() => setSelectedAbcTier(null)}
-        >
-          <div
-            style={{
-              backgroundColor: 'var(--bg-secondary)',
-              border: `1px solid ${selectedAbcTier.color}`,
-              borderRadius: 'var(--radius-lg)',
-              maxWidth: '850px',
-              width: '100%',
-              maxHeight: '85vh',
-              display: 'flex',
-              flexDirection: 'column',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-              overflow: 'hidden',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div
-              style={{
-                padding: '20px 24px',
-                borderBottom: '1px solid var(--border-color)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <div>
-                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: selectedAbcTier.color }}>
-                  {selectedAbcTier.tierName}
-                </h3>
-                <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  {selectedAbcTier.data.skuCount} SKUs · {formatINR(selectedAbcTier.data.capitalValue)} ({selectedAbcTier.data.percentage}% of total capital)
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedAbcTier(null)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-tertiary)',
-                  fontSize: '20px',
-                  cursor: 'pointer',
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Modal Search Filter */}
-            <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-tertiary)' }}>
-              <input
-                type="text"
-                className="input"
-                placeholder="Filter SKUs in this tier..."
-                value={abcModalSearch}
-                onChange={(e) => setAbcModalSearch(e.target.value)}
-                style={{ width: '100%' }}
-              />
-            </div>
-
-            {/* Modal Items List */}
-            <div style={{ padding: '16px 24px', overflowY: 'auto', flex: 1 }}>
-              {filteredAbcItems.length === 0 ? (
-                <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                  No SKUs found matching "{abcModalSearch}".
-                </div>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', textAlign: 'left' }}>
-                      <th style={{ padding: '10px' }}>Product</th>
-                      <th style={{ padding: '10px' }}>Category</th>
-                      <th style={{ padding: '10px', textAlign: 'right' }}>Current Stock</th>
-                      <th style={{ padding: '10px', textAlign: 'right' }}>Cost Basis</th>
-                      <th style={{ padding: '10px', textAlign: 'right' }}>Locked Capital</th>
-                      <th style={{ padding: '10px', textAlign: 'center' }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAbcItems.map((item) => (
-                      <tr key={item.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '12px 10px' }}>
-                          <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{item.name}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>SKU: {item.sku}</div>
-                        </td>
-                        <td style={{ padding: '12px 10px', color: 'var(--text-secondary)' }}>{item.category || 'General'}</td>
-                        <td style={{ padding: '12px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{item.currentStock.toLocaleString()}</td>
-                        <td style={{ padding: '12px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                          ₹{item.costPrice.toLocaleString()}
-                        </td>
-                        <td style={{ padding: '12px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>
-                          {formatINR(item.costValuation)}
-                        </td>
-                        <td style={{ padding: '12px 10px', textAlign: 'center' }}>
-                          <button
-                            onClick={() => jumpToProductAudit(item.id)}
-                            style={{
-                              background: 'var(--bg-tertiary)',
-                              border: '1px solid var(--border-color)',
-                              borderRadius: '4px',
-                              padding: '4px 8px',
-                              fontSize: '11px',
-                              color: 'var(--text-primary)',
-                              cursor: 'pointer',
-                              fontWeight: 600,
-                            }}
-                          >
-                            Audit ➔
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div
-              style={{
-                padding: '14px 24px',
-                borderTop: '1px solid var(--border-color)',
-                display: 'flex',
-                justifyContent: 'flex-end',
-                backgroundColor: 'var(--bg-tertiary)',
-              }}
-            >
-              <button className="btn btn-secondary btn-sm" onClick={() => setSelectedAbcTier(null)}>
-                Close
-              </button>
-            </div>
           </div>
         </div>
       )}
