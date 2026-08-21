@@ -27,9 +27,9 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://checkout.razorpay.com'],
-      connectSrc: ["'self'", 'https://api.razorpay.com', 'https://lumberjack.razorpay.com'],
-      frameSrc: ["'self'", 'https://api.razorpay.com'],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      connectSrc: ["'self'"],
+      frameSrc: ["'self'"],
       imgSrc: ["'self'", 'data:', 'https:'],
     },
   },

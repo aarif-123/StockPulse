@@ -62,7 +62,6 @@ enum BillingCycle {
 
 enum PaymentMethod {
   UPI_MANUAL
-  RAZORPAY
   BANK_TRANSFER
   CASH
   CHEQUE

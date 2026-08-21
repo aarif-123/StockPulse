@@ -6,7 +6,7 @@ export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING';
 export type OrgStatus = 'ACTIVE' | 'SUSPENDED' | 'TRIAL' | 'CANCELLED';
 export type SubscriptionStatus = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED' | 'EXPIRED' | 'CANCELLED';
 export type BillingCycle = 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
-export type PaymentMethod = 'UPI_MANUAL' | 'RAZORPAY' | 'BANK_TRANSFER' | 'CASH' | 'CHEQUE' | 'CREDIT';
+export type PaymentMethod = 'UPI_MANUAL' | 'BANK_TRANSFER' | 'CASH' | 'CHEQUE' | 'CREDIT';
 export type PaymentRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface UserOrganizationSummary {

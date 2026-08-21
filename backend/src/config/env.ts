@@ -17,8 +17,6 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(1, 'JWT_SECRET is required'),
   JWT_EXPIRES_IN: z.string().default('1d'),
   FRONTEND_URL: z.string().default('http://localhost:5173'),
-  RAZORPAY_KEY_ID: z.string().default('rzp_test_StockPulseDemoKey'),
-  RAZORPAY_KEY_SECRET: z.string().default('StockPulseDemoSecret123456789'),
   GROQ_API_KEY: z.string().default(process.env.GROQ_API_KEY || ''),
   GROQ_MODEL: z.string().default(process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'),
 });

@@ -64,7 +64,7 @@ async function syncSchemaWithPg() {
     CREATE TYPE "MembershipStatus" AS ENUM ('ACTIVE', 'INVITED', 'SUSPENDED');
     CREATE TYPE "SubscriptionStatus" AS ENUM ('TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED', 'EXPIRED', 'CANCELLED');
     CREATE TYPE "BillingCycle" AS ENUM ('MONTHLY', 'QUARTERLY', 'YEARLY');
-    CREATE TYPE "PaymentMethod" AS ENUM ('UPI_MANUAL', 'RAZORPAY', 'BANK_TRANSFER', 'CASH', 'CHEQUE', 'CREDIT');
+    CREATE TYPE "PaymentMethod" AS ENUM ('UPI_MANUAL', 'BANK_TRANSFER', 'CASH', 'CHEQUE', 'CREDIT');
     CREATE TYPE "PaymentRequestStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
     CREATE TYPE "CustomerType" AS ENUM ('RETAIL', 'WHOLESALE', 'DISTRIBUTOR');
     CREATE TYPE "CustomerStatus" AS ENUM ('LEAD', 'ACTIVE', 'INACTIVE');
