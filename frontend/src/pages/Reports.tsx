@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { reportService, type StockMovementReportItem, type ReportsAnalyticsData } from '../services/report.service';
 import { productService } from '../services/product.service';
 import { handleApiError } from '../services/api';
@@ -16,6 +16,272 @@ const formatINR = (val: number): string => {
     currency: 'INR',
     maximumFractionDigits: 0,
   }).format(val);
+};
+
+interface SearchableProductSelectProps {
+  products: Product[];
+  selectedId: string;
+  onSelect: (productId: string) => void;
+}
+
+const SearchableProductSelect: React.FC<SearchableProductSelectProps> = ({
+  products,
+  selectedId,
+  onSelect,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selectedProduct = useMemo(
+    () => products.find((p) => p.id === selectedId),
+    [products, selectedId]
+  );
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return products;
+    const q = query.toLowerCase();
+    return products.filter(
+      (p) =>
+        p.sku.toLowerCase().includes(q) ||
+        p.name.toLowerCase().includes(q) ||
+        (p.category && p.category.toLowerCase().includes(q))
+    );
+  }, [products, query]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative', minWidth: '260px' }}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          width: '100%',
+          padding: '8px 14px',
+          backgroundColor: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: 'var(--radius-md)',
+          color: selectedProduct ? 'var(--text-primary)' : 'var(--text-secondary)',
+          fontSize: '13px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          cursor: 'pointer',
+          textAlign: 'left',
+          gap: '8px',
+          transition: 'border-color 0.15s ease',
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--primary)')}
+        onMouseLeave={(e) => {
+          if (!isOpen) e.currentTarget.style.borderColor = 'var(--border-color)';
+        }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+          {selectedProduct ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <strong style={{ color: 'var(--primary)', fontFamily: 'var(--font-mono)' }}>{selectedProduct.sku}</strong>
+              <span style={{ color: 'var(--text-secondary)' }}>- {selectedProduct.name}</span>
+            </span>
+          ) : (
+            'Filter by Product SKU...'
+          )}
+        </span>
+        {selectedProduct ? (
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect('');
+            }}
+            style={{
+              color: 'var(--text-tertiary)',
+              padding: '2px 4px',
+              borderRadius: '2px',
+              fontSize: '12px',
+              fontWeight: 'bold',
+            }}
+            title="Clear SKU Filter"
+          >
+            ✕
+          </span>
+        ) : (
+          <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>▼</span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            right: 0,
+            minWidth: '300px',
+            backgroundColor: '#18181b', // Pure dark elevated background
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: '0 16px 36px rgba(0, 0, 0, 0.65)',
+            zIndex: 200,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: '320px',
+          }}
+        >
+          <div style={{ padding: '8px', borderBottom: '1px solid var(--border-color)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder="Search SKU, product name, category..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '6px 10px',
+                backgroundColor: 'rgba(255,255,255,0.06)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-sm)',
+                color: '#f4f4f5',
+                fontSize: '12.5px',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          <div style={{ overflowY: 'auto', flex: 1, padding: '4px' }}>
+            <div
+              onClick={() => {
+                onSelect('');
+                setIsOpen(false);
+                setQuery('');
+              }}
+              style={{
+                padding: '8px 10px',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+                fontSize: '12.5px',
+                color: !selectedId ? 'var(--primary)' : '#a1a1aa',
+                backgroundColor: !selectedId ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                fontWeight: !selectedId ? 700 : 500,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <span>All Products (No SKU filter)</span>
+              {!selectedId && <span style={{ color: 'var(--primary)' }}>✓</span>}
+            </div>
+
+            {filtered.length === 0 ? (
+              <div style={{ padding: '16px', textAlign: 'center', color: '#71717a', fontSize: '12px' }}>
+                No matching products found.
+              </div>
+            ) : (
+              filtered.map((p) => {
+                const isSelected = p.id === selectedId;
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => {
+                      onSelect(p.id);
+                      setIsOpen(false);
+                      setQuery('');
+                    }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: 'var(--radius-sm)',
+                      cursor: 'pointer',
+                      fontSize: '12.5px',
+                      backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+                      transition: 'background-color 0.1s ease',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                  >
+                    <div style={{ overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span
+                          style={{
+                            fontFamily: 'var(--font-mono)',
+                            fontWeight: 700,
+                            color: isSelected ? 'var(--primary)' : '#f4f4f5',
+                            fontSize: '12px',
+                          }}
+                        >
+                          {p.sku}
+                        </span>
+                        {p.category && (
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              padding: '1px 5px',
+                              borderRadius: '3px',
+                              backgroundColor: 'rgba(255,255,255,0.06)',
+                              color: '#a1a1aa',
+                            }}
+                          >
+                            {p.category}
+                          </span>
+                        )}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          color: '#d4d4d8',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          maxWidth: '180px',
+                          marginTop: '2px',
+                        }}
+                      >
+                        {p.name}
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontFamily: 'var(--font-mono)',
+                          color: p.currentStock > 0 ? '#71717a' : 'var(--danger)',
+                        }}
+                      >
+                        {p.currentStock} in stock
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export const Reports: React.FC = () => {
@@ -64,7 +330,7 @@ export const Reports: React.FC = () => {
   useEffect(() => {
     async function loadProducts() {
       try {
-        const res = await productService.getProducts({ limit: 100 });
+        const res = await productService.getProducts({ limit: 200 });
         setProducts(res.data);
       } catch {
         // Graceful fallback
@@ -276,7 +542,7 @@ export const Reports: React.FC = () => {
     <div>
       <PageHeader
         title="Enterprise Inventory Intelligence & Reports"
-        subtitle="Scalable analytics, working capital locks, stock flow throughput, and immutable audit logs."
+        subtitle="Scalable analytics, working capital locks, material throughput velocity, and immutable audit logs."
         actions={
           activeTab === 'audit' && movements.length > 0 && (
             <button className="btn btn-secondary btn-sm" onClick={handleExportCsv} id="export-reports-btn">
@@ -305,7 +571,7 @@ export const Reports: React.FC = () => {
             className={`status-tab ${activeTab === 'analytics' ? 'status-tab--active' : ''}`}
             onClick={() => setActiveTab('analytics')}
           >
-            <IconBarChart size={15} /> Valuation & Capital Flow
+            <IconBarChart size={15} /> Valuation & Capital
           </button>
           <button
             className={`status-tab ${activeTab === 'velocity' ? 'status-tab--active' : ''}`}
@@ -908,15 +1174,16 @@ export const Reports: React.FC = () => {
       {/* ── 4. IMMUTABLE AUDIT TRAIL TAB ────────────────────────────────────── */}
       {activeTab === 'audit' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Filter Bar */}
+          {/* Modern Dark Filter Bar */}
           <div
             className="card"
             style={{
-              padding: '16px',
+              padding: '16px 20px',
               display: 'flex',
-              gap: '12px',
+              gap: '14px',
               alignItems: 'center',
               flexWrap: 'wrap',
+              backgroundColor: 'var(--bg-secondary)',
             }}
           >
             {/* Search Input with Clear Button */}
@@ -930,7 +1197,12 @@ export const Reports: React.FC = () => {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                style={{ width: '100%', paddingRight: search ? '30px' : '12px' }}
+                style={{
+                  width: '100%',
+                  paddingRight: search ? '30px' : '12px',
+                  backgroundColor: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                }}
               />
               {search && (
                 <button
@@ -957,36 +1229,37 @@ export const Reports: React.FC = () => {
 
             {/* Movement Type Filter */}
             <select
-              className="input"
               value={movementType}
               onChange={(e) => {
                 setMovementType(e.target.value as any);
                 setPage(1);
               }}
-              style={{ width: '160px' }}
+              style={{
+                padding: '8px 14px',
+                backgroundColor: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--text-primary)',
+                fontSize: '13px',
+                cursor: 'pointer',
+                minWidth: '175px',
+                outline: 'none',
+              }}
             >
-              <option value="">All Movement Types</option>
-              <option value="IN">↓ Stock Inward</option>
-              <option value="OUT">↑ Stock Outward</option>
+              <option value="" style={{ backgroundColor: '#18181b', color: '#f4f4f5' }}>All Movement Types</option>
+              <option value="IN" style={{ backgroundColor: '#18181b', color: '#4ade80' }}>↓ Stock Inward</option>
+              <option value="OUT" style={{ backgroundColor: '#18181b', color: '#f87171' }}>↑ Stock Outward</option>
             </select>
 
-            {/* Product Filter */}
-            <select
-              className="input"
-              value={productId}
-              onChange={(e) => {
-                setProductId(e.target.value);
+            {/* Modern Advance Searchable SKU Combobox Filter */}
+            <SearchableProductSelect
+              products={products}
+              selectedId={productId}
+              onSelect={(pId) => {
+                setProductId(pId);
                 setPage(1);
               }}
-              style={{ width: '220px' }}
-            >
-              <option value="">Filter by Product SKU...</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.sku} - {p.name.slice(0, 24)}
-                </option>
-              ))}
-            </select>
+            />
 
             {/* Clear All Filters */}
             {(search || productId || movementType) && (
@@ -1000,12 +1273,15 @@ export const Reports: React.FC = () => {
                 style={{
                   background: 'transparent',
                   border: '1px dashed var(--border-color)',
-                  borderRadius: '4px',
-                  padding: '8px 12px',
-                  fontSize: '12px',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '8px 14px',
+                  fontSize: '12.5px',
                   color: 'var(--text-secondary)',
                   cursor: 'pointer',
+                  transition: 'color 0.15s ease',
                 }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
               >
                 Reset Filters
               </button>
@@ -1024,9 +1300,10 @@ export const Reports: React.FC = () => {
               emptyMessage="No stock movements match the specified query filters."
             />
 
-            {/* Pagination Controls - Shifted Left/Center with breathing room from Chatbot Widget */}
+            {/* Pagination Controls - Standardized layout with clearance from DOST AI floating button */}
             {!loadingAudit && movements.length > 0 && (
               <div
+                className="pagination-footer"
                 style={{
                   padding: '14px 20px',
                   borderTop: '1px solid var(--border-color)',
@@ -1035,41 +1312,21 @@ export const Reports: React.FC = () => {
                   alignItems: 'center',
                   flexWrap: 'wrap',
                   gap: '16px',
-                  paddingRight: '120px', // Extra right padding prevents overlapping with floating DOST AI widget
+                  paddingRight: '220px', // Extra spacing ensures no collision with floating DOST AI widget
                 }}
               >
-                <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+                <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
                   Showing <strong style={{ color: 'var(--text-primary)' }}>{showRange}</strong> audit movements
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-                    <span>Rows per page:</span>
-                    <select
-                      value={pageSize}
-                      onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-                      style={{
-                        padding: '4px 8px',
-                        backgroundColor: 'var(--bg-tertiary)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '4px',
-                        color: 'var(--text-primary)',
-                        fontSize: '12px',
-                      }}
-                    >
-                      <option value={15}>15</option>
-                      <option value={20}>20</option>
-                      <option value={50}>50</option>
-                      <option value={100}>100</option>
-                    </select>
-                  </div>
-
-                  <Pagination
-                    currentPage={page}
-                    totalPages={totalPages}
-                    onPageChange={(p) => setPage(p)}
-                  />
-                </div>
+                </span>
+                <Pagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                  pageSize={pageSize}
+                  onPageSizeChange={handlePageSizeChange}
+                  pageSizeOptions={[10, 15, 20, 50, 100]}
+                  totalItems={totalItems}
+                />
               </div>
             )}
           </div>
