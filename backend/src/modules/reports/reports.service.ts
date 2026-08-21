@@ -199,12 +199,20 @@ export async function getReportsAnalytics(organizationId: string, range = '30d')
       id: string;
       name: string;
       sku: string;
+      category: string;
+      currentStock: number;
+      unitPrice: number;
+      costPrice: number;
       costValuation: number;
     }>>`
       SELECT 
         id,
         name,
         sku,
+        category,
+        "currentStock"::int as "currentStock",
+        "unitPrice"::float as "unitPrice",
+        CASE WHEN "costPrice" > 0 THEN "costPrice" ELSE "unitPrice" * 0.75 END::float as "costPrice",
         ("currentStock" * CASE WHEN "costPrice" > 0 THEN "costPrice" ELSE "unitPrice" * 0.75 END)::float as "costValuation"
       FROM products
       WHERE "organizationId" = ${organizationId}
@@ -279,26 +287,42 @@ export async function getReportsAnalytics(organizationId: string, range = '30d')
   let accumulatedCapital = 0;
   let classACount = 0;
   let classACapital = 0;
+  const classAItems: any[] = [];
   let classBCount = 0;
   let classBCapital = 0;
+  const classBItems: any[] = [];
   let classCCount = 0;
   let classCCapital = 0;
+  const classCItems: any[] = [];
 
   const totalActiveCapital = totalCostValuation || 1;
   for (const prod of abcProducts) {
     const val = Number(prod.costValuation) || 0;
     accumulatedCapital += val;
     const share = (accumulatedCapital / totalActiveCapital) * 100;
+    const itemData = {
+      id: prod.id,
+      name: prod.name,
+      sku: prod.sku,
+      category: prod.category,
+      currentStock: Number(prod.currentStock) || 0,
+      unitPrice: Number(prod.unitPrice) || 0,
+      costPrice: Number(prod.costPrice) || 0,
+      costValuation: Math.round(val),
+    };
 
     if (share <= 80) {
       classACount++;
       classACapital += val;
+      if (classAItems.length < 50) classAItems.push(itemData);
     } else if (share <= 95) {
       classBCount++;
       classBCapital += val;
+      if (classBItems.length < 50) classBItems.push(itemData);
     } else {
       classCCount++;
       classCCapital += val;
+      if (classCItems.length < 50) classCItems.push(itemData);
     }
   }
 
@@ -308,18 +332,21 @@ export async function getReportsAnalytics(organizationId: string, range = '30d')
       capitalValue: Math.round(classACapital),
       percentage: totalCostValuation > 0 ? Math.round((classACapital / totalCostValuation) * 100) : 80,
       description: 'Top 80% capital value (High critical priority)',
+      items: classAItems,
     },
     classB: {
       skuCount: classBCount,
       capitalValue: Math.round(classBCapital),
       percentage: totalCostValuation > 0 ? Math.round((classBCapital / totalCostValuation) * 100) : 15,
       description: 'Next 15% capital value (Moderate turnover)',
+      items: classBItems,
     },
     classC: {
       skuCount: Math.max(classCCount, activeSkusCount - classACount - classBCount),
       capitalValue: Math.round(classCCapital),
       percentage: totalCostValuation > 0 ? Math.round((classCCapital / totalCostValuation) * 100) : 5,
       description: 'Lowest 5% capital value (Bulk low-cost items)',
+      items: classCItems,
     },
   };
 

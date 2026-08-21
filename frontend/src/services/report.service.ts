@@ -77,6 +77,16 @@ export interface AbcTierData {
   capitalValue: number;
   percentage: number;
   description: string;
+  items?: Array<{
+    id: string;
+    name: string;
+    sku: string;
+    category?: string;
+    currentStock: number;
+    unitPrice: number;
+    costPrice: number;
+    costValuation: number;
+  }>;
 }
 
 export interface ReportsAnalyticsData {
