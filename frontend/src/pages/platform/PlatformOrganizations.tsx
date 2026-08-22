@@ -166,7 +166,7 @@ export const PlatformOrganizations: React.FC = () => {
   return (
     <div>
       {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.4px' }}>
             🏢 Enterprise Tenant Directory
@@ -272,7 +272,8 @@ export const PlatformOrganizations: React.FC = () => {
             No tenant organizations found matching current query.
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px', textAlign: 'left' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px', textAlign: 'left' }}>
             <thead>
               <tr style={{ backgroundColor: '#0f172a', color: '#94a3b8', borderBottom: '1px solid #334155' }}>
                 <th style={{ padding: '14px 16px' }}>Organization Details</th>
@@ -286,7 +287,7 @@ export const PlatformOrganizations: React.FC = () => {
             <tbody>
               {organizations.map((org) => (
                 <tr key={org.id} style={{ borderBottom: '1px solid #334155' }}>
-                  <td style={{ padding: '14px 16px' }}>
+                  <td data-label="Organization Details" style={{ padding: '14px 16px' }}>
                     <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: '14px' }}>{org.name}</div>
                     <div style={{ color: '#94a3b8', fontSize: '12px', fontFamily: 'monospace' }}>@{org.slug}</div>
                     {org.businessGstin && (
@@ -295,7 +296,7 @@ export const PlatformOrganizations: React.FC = () => {
                       </div>
                     )}
                   </td>
-                  <td style={{ padding: '14px 16px' }}>
+                  <td data-label="Status" style={{ padding: '14px 16px' }}>
                     <span
                       style={{
                         padding: '4px 10px',
@@ -319,7 +320,7 @@ export const PlatformOrganizations: React.FC = () => {
                       {org.status}
                     </span>
                   </td>
-                  <td style={{ padding: '14px 16px' }}>
+                  <td data-label="Subscription Plan" style={{ padding: '14px 16px' }}>
                     {org.activeSubscription ? (
                       <div>
                         <span style={{ color: '#f8fafc', fontWeight: 600 }}>{org.activeSubscription.planName}</span>
@@ -331,13 +332,13 @@ export const PlatformOrganizations: React.FC = () => {
                       <span style={{ color: '#64748b' }}>No subscription</span>
                     )}
                   </td>
-                  <td style={{ padding: '14px 16px', color: '#cbd5e1', fontSize: '12.5px' }}>
+                  <td data-label="Telemetry Counts" style={{ padding: '14px 16px', color: '#cbd5e1', fontSize: '12.5px' }}>
                     👥 {org.counts.memberships} users • 📦 {org.counts.products} SKUs • 🧾 {org.counts.challans} challans
                   </td>
-                  <td style={{ padding: '14px 16px', color: '#94a3b8', fontSize: '12px', fontFamily: 'monospace' }}>
+                  <td data-label="Provisioned Date" style={{ padding: '14px 16px', color: '#94a3b8', fontSize: '12px', fontFamily: 'monospace' }}>
                     {new Date(org.createdAt).toLocaleDateString()}
                   </td>
-                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                  <td data-label="Actions" style={{ padding: '14px 16px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                       <button
                         onClick={() => setSelectedOrgId(org.id)}
@@ -354,7 +355,6 @@ export const PlatformOrganizations: React.FC = () => {
                       >
                         Inspect Hierarchy
                       </button>
-
                       <button
                         onClick={() => handleImpersonateOrg(org.id)}
                         style={{
@@ -370,7 +370,6 @@ export const PlatformOrganizations: React.FC = () => {
                       >
                         Impersonate
                       </button>
-
                       {org.status === 'ACTIVE' ? (
                         <button
                           onClick={() => handleUpdateStatus(org.id, 'SUSPENDED')}
@@ -410,6 +409,7 @@ export const PlatformOrganizations: React.FC = () => {
               ))}
             </tbody>
           </table>
+          </div>
         )}
 
         {/* Pagination Footer */}

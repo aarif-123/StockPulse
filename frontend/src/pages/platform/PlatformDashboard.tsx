@@ -57,7 +57,7 @@ export const PlatformDashboard: React.FC = () => {
   return (
     <div>
       {/* Top Title Banner */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.4px' }}>
             📊 Executive Platform Control Center
@@ -404,7 +404,7 @@ export const PlatformDashboard: React.FC = () => {
               <p style={{ color: '#94a3b8', fontSize: '13.5px', margin: 0 }}>No recent audit events recorded.</p>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
+                <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid #334155', textAlign: 'left', color: '#94a3b8' }}>
                       <th style={{ padding: '10px 12px' }}>Timestamp</th>
@@ -417,13 +417,13 @@ export const PlatformDashboard: React.FC = () => {
                   <tbody>
                     {recentAudits.map((item) => (
                       <tr key={item.id} style={{ borderBottom: '1px solid #0f172a' }}>
-                        <td style={{ padding: '10px 12px', color: '#cbd5e1', fontFamily: 'monospace', fontSize: '12px' }}>
+                        <td data-label="Timestamp" style={{ padding: '10px 12px', color: '#cbd5e1', fontFamily: 'monospace', fontSize: '12px' }}>
                           {new Date(item.createdAt).toLocaleString()}
                         </td>
-                        <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>
+                        <td data-label="Actor" style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>
                           {item.actor ? item.actor.name : 'System'}
                         </td>
-                        <td style={{ padding: '10px 12px' }}>
+                        <td data-label="Action" style={{ padding: '10px 12px' }}>
                           <span
                             style={{
                               backgroundColor: 'rgba(99, 102, 241, 0.15)',
@@ -437,8 +437,8 @@ export const PlatformDashboard: React.FC = () => {
                             {item.action}
                           </span>
                         </td>
-                        <td style={{ padding: '10px 12px', color: '#cbd5e1' }}>{item.resource}</td>
-                        <td style={{ padding: '10px 12px', color: '#94a3b8' }}>
+                        <td data-label="Resource" style={{ padding: '10px 12px', color: '#cbd5e1' }}>{item.resource}</td>
+                        <td data-label="Organization" style={{ padding: '10px 12px', color: '#94a3b8' }}>
                           {item.organization ? item.organization.name : 'Platform Wide'}
                         </td>
                       </tr>

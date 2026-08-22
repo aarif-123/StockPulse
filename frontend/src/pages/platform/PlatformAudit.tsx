@@ -144,7 +144,8 @@ export const PlatformAudit: React.FC = () => {
             No audit log entries found matching current filters.
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px', textAlign: 'left' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px', textAlign: 'left' }}>
             <thead>
               <tr style={{ backgroundColor: '#0f172a', color: '#94a3b8', borderBottom: '1px solid #334155' }}>
                 <th style={{ padding: '14px 16px' }}>Timestamp</th>
@@ -158,11 +159,11 @@ export const PlatformAudit: React.FC = () => {
             <tbody>
               {logs.map((item) => (
                 <tr key={item.id} style={{ borderBottom: '1px solid #334155' }}>
-                  <td style={{ padding: '14px 16px', color: '#cbd5e1', fontFamily: 'monospace', fontSize: '12px' }}>
+                  <td data-label="Timestamp" style={{ padding: '14px 16px', color: '#cbd5e1', fontFamily: 'monospace', fontSize: '12px' }}>
                     {new Date(item.createdAt).toLocaleString()}
                   </td>
 
-                  <td style={{ padding: '14px 16px' }}>
+                  <td data-label="Scope" style={{ padding: '14px 16px' }}>
                     <span
                       style={{
                         padding: '3px 8px',
@@ -178,7 +179,7 @@ export const PlatformAudit: React.FC = () => {
                     </span>
                   </td>
 
-                  <td style={{ padding: '14px 16px' }}>
+                  <td data-label="Actor" style={{ padding: '14px 16px' }}>
                     <div style={{ fontWeight: 600, color: '#f8fafc' }}>
                       {item.actor ? item.actor.name : 'System'}
                     </div>
@@ -187,7 +188,7 @@ export const PlatformAudit: React.FC = () => {
                     </div>
                   </td>
 
-                  <td style={{ padding: '14px 16px' }}>
+                  <td data-label="Action" style={{ padding: '14px 16px' }}>
                     <span
                       style={{
                         backgroundColor: 'rgba(99, 102, 241, 0.15)',
@@ -202,14 +203,14 @@ export const PlatformAudit: React.FC = () => {
                     </span>
                   </td>
 
-                  <td style={{ padding: '14px 16px' }}>
+                  <td data-label="Resource & Org" style={{ padding: '14px 16px' }}>
                     <div style={{ color: '#f8fafc', fontWeight: 600 }}>{item.resource}</div>
                     <div style={{ color: '#94a3b8', fontSize: '11.5px' }}>
                       {item.organization ? item.organization.name : 'Platform Wide'}
                     </div>
                   </td>
 
-                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                  <td data-label="Payload" style={{ padding: '14px 16px', textAlign: 'right' }}>
                     {item.metadata && (
                       <button
                         onClick={() => setSelectedMetadata(item.metadata!)}
@@ -232,6 +233,7 @@ export const PlatformAudit: React.FC = () => {
               ))}
             </tbody>
           </table>
+          </div>
         )}
 
         {/* Pagination Footer */}

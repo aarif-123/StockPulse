@@ -100,7 +100,7 @@ export const PlatformSupport: React.FC = () => {
   return (
     <div>
       {/* Top Banner */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.4px' }}>
             🔒 Audited Support & Impersonation Sessions
@@ -151,7 +151,8 @@ export const PlatformSupport: React.FC = () => {
             No support impersonation sessions recorded.
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px', textAlign: 'left' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px', textAlign: 'left' }}>
             <thead>
               <tr style={{ backgroundColor: '#0f172a', color: '#94a3b8', borderBottom: '1px solid #334155' }}>
                 <th style={{ padding: '14px 16px' }}>Target Organization</th>
@@ -165,7 +166,7 @@ export const PlatformSupport: React.FC = () => {
             <tbody>
               {sessions.map((s) => (
                 <tr key={s.id} style={{ borderBottom: '1px solid #334155' }}>
-                  <td style={{ padding: '14px 16px' }}>
+                  <td data-label="Target Organization" style={{ padding: '14px 16px' }}>
                     <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: '14px' }}>
                       {s.targetOrganization ? s.targetOrganization.name : 'Unknown Org'}
                     </div>
@@ -174,7 +175,7 @@ export const PlatformSupport: React.FC = () => {
                     </div>
                   </td>
 
-                  <td style={{ padding: '14px 16px' }}>
+                  <td data-label="Target User" style={{ padding: '14px 16px' }}>
                     <div style={{ color: '#f8fafc', fontWeight: 600 }}>
                       {s.targetUser ? s.targetUser.name : 'Org Admin'}
                     </div>
@@ -183,11 +184,11 @@ export const PlatformSupport: React.FC = () => {
                     </div>
                   </td>
 
-                  <td style={{ padding: '14px 16px', color: '#cbd5e1', maxWidth: '240px' }}>
+                  <td data-label="Audit Reason" style={{ padding: '14px 16px', color: '#cbd5e1', maxWidth: '240px' }}>
                     {s.reason}
                   </td>
 
-                  <td style={{ padding: '14px 16px' }}>
+                  <td data-label="Status" style={{ padding: '14px 16px' }}>
                     <span
                       style={{
                         padding: '4px 10px',
@@ -212,12 +213,12 @@ export const PlatformSupport: React.FC = () => {
                     </span>
                   </td>
 
-                  <td style={{ padding: '14px 16px', color: '#94a3b8', fontSize: '12px', fontFamily: 'monospace' }}>
+                  <td data-label="Started & Expiration" style={{ padding: '14px 16px', color: '#94a3b8', fontSize: '12px', fontFamily: 'monospace' }}>
                     <div>Start: {new Date(s.startedAt).toLocaleString()}</div>
                     <div>Expires: {new Date(s.expiresAt).toLocaleString()}</div>
                   </td>
 
-                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                  <td data-label="Actions" style={{ padding: '14px 16px', textAlign: 'right' }}>
                     {s.status === 'ACTIVE' && (
                       <button
                         onClick={() => handleTerminateSession(s.id)}
@@ -240,6 +241,7 @@ export const PlatformSupport: React.FC = () => {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

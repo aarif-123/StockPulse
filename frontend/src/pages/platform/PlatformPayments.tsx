@@ -79,7 +79,7 @@ export const PlatformPayments: React.FC = () => {
       )}
 
       {/* Tabs Bar */}
-      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #334155', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #334155', marginBottom: '24px', flexWrap: 'wrap' }}>
         {[
           { id: 'PENDING', label: '⏳ Pending Review' },
           { id: 'APPROVED', label: '✓ Approved' },
@@ -121,7 +121,8 @@ export const PlatformPayments: React.FC = () => {
             No payment requests found for the selected filter.
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px', textAlign: 'left' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px', textAlign: 'left' }}>
             <thead>
               <tr style={{ backgroundColor: '#0f172a', color: '#94a3b8', borderBottom: '1px solid #334155' }}>
                 <th style={{ padding: '14px 16px' }}>Organization</th>
@@ -135,7 +136,7 @@ export const PlatformPayments: React.FC = () => {
             <tbody>
               {payments.map((p) => (
                 <tr key={p.id} style={{ borderBottom: '1px solid #334155' }}>
-                  <td style={{ padding: '14px 16px' }}>
+                  <td data-label="Organization" style={{ padding: '14px 16px' }}>
                     <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: '14px' }}>
                       {p.organization ? p.organization.name : 'Unknown Org'}
                     </div>
@@ -143,8 +144,7 @@ export const PlatformPayments: React.FC = () => {
                       {p.organization ? p.organization.slug : ''}
                     </div>
                   </td>
-
-                  <td style={{ padding: '14px 16px' }}>
+                  <td data-label="Plan & Amount" style={{ padding: '14px 16px' }}>
                     <div style={{ fontWeight: 700, color: '#4ade80', fontSize: '14px', fontFamily: 'monospace' }}>
                       ₹{p.amountINR}
                     </div>
@@ -152,8 +152,7 @@ export const PlatformPayments: React.FC = () => {
                       {p.plan ? p.plan.name : 'Subscription Plan'} ({p.billingCycle})
                     </div>
                   </td>
-
-                  <td style={{ padding: '14px 16px' }}>
+                  <td data-label="Reference / UTR" style={{ padding: '14px 16px' }}>
                     <div style={{ color: '#f59e0b', fontWeight: 700, fontFamily: 'monospace', fontSize: '13px' }}>
                       {p.referenceNumber}
                     </div>
@@ -178,8 +177,7 @@ export const PlatformPayments: React.FC = () => {
                       </button>
                     )}
                   </td>
-
-                  <td style={{ padding: '14px 16px' }}>
+                  <td data-label="Submitted By" style={{ padding: '14px 16px' }}>
                     <div style={{ color: '#f8fafc', fontWeight: 600 }}>
                       {p.submitter ? p.submitter.name : 'User'}
                     </div>
@@ -190,8 +188,7 @@ export const PlatformPayments: React.FC = () => {
                       {new Date(p.submittedAt).toLocaleString()}
                     </div>
                   </td>
-
-                  <td style={{ padding: '14px 16px' }}>
+                  <td data-label="Status" style={{ padding: '14px 16px' }}>
                     <span
                       style={{
                         padding: '4px 10px',
@@ -220,8 +217,7 @@ export const PlatformPayments: React.FC = () => {
                       </div>
                     )}
                   </td>
-
-                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                  <td data-label="Actions" style={{ padding: '14px 16px', textAlign: 'right' }}>
                     {p.status === 'PENDING' ? (
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                         <button
@@ -265,6 +261,7 @@ export const PlatformPayments: React.FC = () => {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
