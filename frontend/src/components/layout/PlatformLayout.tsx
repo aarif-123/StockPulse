@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../services/api';
 import { IconLogOut, IconMenu } from '../common/Icons';
+import { AiAssistantChatbot } from '../chat/AiAssistantChatbot';
 
 export const PlatformLayout: React.FC = () => {
   const { user, logout, isSupportMode, exitSupportSession } = useAuth();
@@ -393,6 +394,7 @@ export const PlatformLayout: React.FC = () => {
           onClick={closeMobileSidebar}
         />
       )}
+      <AiAssistantChatbot />
     </div>
   );
 };

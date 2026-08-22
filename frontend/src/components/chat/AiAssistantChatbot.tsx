@@ -31,7 +31,7 @@ interface ChatMessage {
 }
 
 export const AiAssistantChatbot: React.FC = () => {
-  const { user, activeOrg } = useAuth();
+  const { user, activeOrg, isSuperAdmin, startSupportSession } = useAuth();
   const navigate = useNavigate();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -243,17 +243,62 @@ export const AiAssistantChatbot: React.FC = () => {
     }
   };
 
-  const initialWelcomeMsg: ChatMessage = {
-    id: 'welcome-1',
-    sender: 'ai',
-    text: `Hello ${user?.name || 'there'}! 👋 I am **DOST**, your intelligent StockPulse AI Business Companion.\n\nI can retrieve business data and **execute actions for you** (create challans, inward/outward stock, confirm dispatches, and manage CRM). I will always ask for your permission before modifying data. How can I help you today?`,
-    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    suggestedPrompts: [
+  const getWelcomeConfig = () => {
+    let welcomeText = `Hello ${user?.name || 'there'}! 👋 I am **DOST**, your intelligent StockPulse AI Business Companion.\n\nI can retrieve business data and **execute actions for you** (create challans, inward/outward stock, confirm dispatches, and manage CRM). I will always ask for your permission before modifying data. How can I help you today?`;
+    let welcomePrompts = [
       'Create a new challan',
       'Inward 50 stock for product',
       'tell me the pending chalana',
       'Show low stock products',
-    ],
+    ];
+
+    if (isSuperAdmin) {
+      welcomeText = `Hello Admin ${user?.name || ''}! 👑 I am **DOST**, your Global SaaS Platform Assistant.\n\nI can retrieve system metrics, evaluate database latency/health, review manual UPI payments, toggle tenant status (Suspend/Activate), and start impersonation support sessions. How can I assist you with platform operations today?`;
+      welcomePrompts = [
+        'Show platform overview metrics',
+        'Show system health telemetry',
+        'List tenant organizations',
+        'Show pending payments',
+      ];
+    } else {
+      const role = activeOrg?.role || user?.role || 'SALES';
+      if (role === 'SALES') {
+        welcomeText = `Hello ${user?.name || 'there'}! 👋 I am **DOST**, your Sales Assistant.\n\nI can help you search products, view customer CRM leads, create delivery challans, and check dispatches. How can I help you close deals today?`;
+        welcomePrompts = [
+          'Create a new challan',
+          'Show customer leads',
+          'Show active customers',
+          'Show recent delivery challans',
+        ];
+      } else if (role === 'WAREHOUSE') {
+        welcomeText = `Hello ${user?.name || 'there'}! 👋 I am **DOST**, your Warehouse Assistant.\n\nI can help you inward/outward stock, confirm dispatches, assemble BOM builds, and monitor low stock items. How can I assist with your shipments today?`;
+        welcomePrompts = [
+          'Inward 50 stock for product',
+          'tell me the pending chalana',
+          'Show low stock products',
+          'Show Bill of Materials',
+        ];
+      } else if (role === 'ACCOUNTS') {
+        welcomeText = `Hello ${user?.name || 'there'}! 👋 I am **DOST**, your Accounts Companion.\n\nI can help you check inventory asset valuations, audit stock flow movement records, and run general dashboard KPIs. How can I help with the books today?`;
+        welcomePrompts = [
+          'What is our total inventory valuation?',
+          'Recent stock movements',
+          'Show workspace stats & KPIs',
+        ];
+      }
+    }
+
+    return { text: welcomeText, prompts: welcomePrompts };
+  };
+
+  const welcomeConfig = getWelcomeConfig();
+
+  const initialWelcomeMsg: ChatMessage = {
+    id: 'welcome-1',
+    sender: 'ai',
+    text: welcomeConfig.text,
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    suggestedPrompts: welcomeConfig.prompts,
   };
 
   const [messages, setMessages] = useState<ChatMessage[]>([initialWelcomeMsg]);
@@ -285,7 +330,7 @@ export const AiAssistantChatbot: React.FC = () => {
     setIsTyping(true);
 
     try {
-      const response = await processCopilotQuery(query, { user, activeOrg });
+      const response = await processCopilotQuery(query, { user, activeOrg, isSuperAdmin });
 
       setMessages((prev) => [
         ...prev,
@@ -326,6 +371,26 @@ export const AiAssistantChatbot: React.FC = () => {
     );
 
     const result = await executeCopilotAction(action);
+
+    if (result.success && action.actionType === 'START_SUPPORT_SESSION' && result.data) {
+      const { session, impersonationToken, targetUser, targetOrganization } = result.data;
+      const targetOrgSummary = {
+        organizationId: targetOrganization.id,
+        organizationName: targetOrganization.name,
+        organizationSlug: targetOrganization.slug,
+        role: 'ORG_ADMIN' as const,
+        status: 'ACTIVE',
+      };
+      const targetUserObj = {
+        ...targetUser,
+        isSuperAdmin: false,
+        role: 'ORG_ADMIN' as const,
+      };
+      startSupportSession(impersonationToken, session.id, targetUserObj, targetOrgSummary);
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 1500);
+    }
 
     setMessages((prev) =>
       prev.map((m) => {
@@ -387,15 +452,54 @@ export const AiAssistantChatbot: React.FC = () => {
     setMessages([initialWelcomeMsg]);
   };
 
-  const topQuickPrompts = [
-    { label: '🛠️ BOM Assemblies', prompt: 'Tell me about the bill of materials' },
-    { label: '🚚 Pending Challans', prompt: 'tell me the pending chalana' },
-    { label: '⚡ Create Challan', prompt: 'Create delivery challan' },
-    { label: '📦 Low Stock Alert', prompt: 'Show low stock products' },
-    { label: '📥 Inward Stock', prompt: 'Inward 20 stock for product' },
-    { label: '💰 Valuation', prompt: 'What is our total inventory valuation?' },
-    { label: '📊 Workspace Stats', prompt: 'Show workspace stats & KPIs' },
-  ];
+  const getQuickPrompts = () => {
+    if (isSuperAdmin) {
+      return [
+        { label: '📊 Overview Metrics', prompt: 'Show platform overview metrics' },
+        { label: '🩺 System Health', prompt: 'Show system health telemetry' },
+        { label: '🏢 Tenant Orgs', prompt: 'List tenant organizations' },
+        { label: '💳 UPI Payments', prompt: 'Show pending payments' },
+        { label: '📜 Global Audits', prompt: 'Show global audit logs' },
+      ];
+    }
+
+    const role = activeOrg?.role || user?.role || 'SALES';
+    if (role === 'SALES') {
+      return [
+        { label: '⚡ Create Challan', prompt: 'Create delivery challan' },
+        { label: '🚚 Pending Challans', prompt: 'tell me the pending chalana' },
+        { label: '👥 CRM Customers', prompt: 'Show active customers' },
+        { label: '🎯 Lead Records', prompt: 'Show customer leads' },
+      ];
+    }
+    if (role === 'WAREHOUSE') {
+      return [
+        { label: '📥 Inward Stock', prompt: 'Inward 20 stock for product' },
+        { label: '🛠️ BOM Assemblies', prompt: 'Tell me about the bill of materials' },
+        { label: '🚚 Pending Challans', prompt: 'tell me the pending chalana' },
+        { label: '📦 Low Stock Alert', prompt: 'Show low stock products' },
+      ];
+    }
+    if (role === 'ACCOUNTS') {
+      return [
+        { label: '💰 Asset Valuation', prompt: 'What is our total inventory valuation?' },
+        { label: '📋 Stock Flow Audit', prompt: 'Recent stock movements' },
+        { label: '📊 Workspace Stats', prompt: 'Show workspace stats & KPIs' },
+      ];
+    }
+
+    return [
+      { label: '🛠️ BOM Assemblies', prompt: 'Tell me about the bill of materials' },
+      { label: '🚚 Pending Challans', prompt: 'tell me the pending chalana' },
+      { label: '⚡ Create Challan', prompt: 'Create delivery challan' },
+      { label: '📦 Low Stock Alert', prompt: 'Show low stock products' },
+      { label: '📥 Inward Stock', prompt: 'Inward 20 stock for product' },
+      { label: '💰 Valuation', prompt: 'What is our total inventory valuation?' },
+      { label: '📊 Workspace Stats', prompt: 'Show workspace stats & KPIs' },
+    ];
+  };
+
+  const topQuickPrompts = getQuickPrompts();
 
   // High-Quality Clean UI Markdown & Component Renderer
   const renderFormattedText = (text: string) => {
@@ -507,6 +611,8 @@ export const AiAssistantChatbot: React.FC = () => {
             top: btnPos ? `${btnPos.y}px` : undefined,
             right: !btnPos ? '24px' : undefined,
             bottom: !btnPos ? '24px' : undefined,
+            borderColor: isSuperAdmin ? 'rgba(245, 158, 11, 0.65)' : undefined,
+            boxShadow: isSuperAdmin ? '0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(245, 158, 11, 0.35), inset 0 0 10px rgba(245, 158, 11, 0.12)' : undefined,
           }}
           title="DOST AI Assistant • Drag anywhere to reposition • Click to chat • Double-click to reset"
           aria-label="Open DOST AI Business Companion"
@@ -528,8 +634,8 @@ export const AiAssistantChatbot: React.FC = () => {
           </div>
 
           {/* AI Orb with Animated Beacon Pulse */}
-          <div className="dost-float-orb">
-            <div className="dost-float-pulse-ring" />
+          <div className="dost-float-orb" style={{ background: isSuperAdmin ? 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)' : undefined, boxShadow: isSuperAdmin ? '0 2px 10px rgba(245, 158, 11, 0.4)' : undefined }}>
+            <div className="dost-float-pulse-ring" style={{ borderColor: isSuperAdmin ? 'rgba(245, 158, 11, 0.75)' : undefined }} />
             <IconSparkles size={18} />
           </div>
 
@@ -542,20 +648,20 @@ export const AiAssistantChatbot: React.FC = () => {
                   fontSize: '13.5px',
                   letterSpacing: '0.06em',
                   color: '#ffffff',
-                  textShadow: '0 0 10px rgba(56, 189, 248, 0.6)',
+                  textShadow: isSuperAdmin ? '0 0 10px rgba(245, 158, 11, 0.6)' : '0 0 10px rgba(56, 189, 248, 0.6)',
                 }}
               >
-                DOST
+                {isSuperAdmin ? 'DOST 👑' : 'DOST'}
               </span>
               <span
                 style={{
                   fontSize: '9.5px',
                   fontWeight: 800,
-                  backgroundColor: 'rgba(56, 189, 248, 0.2)',
-                  color: '#38bdf8',
+                  backgroundColor: isSuperAdmin ? 'rgba(245, 158, 11, 0.2)' : 'rgba(56, 189, 248, 0.2)',
+                  color: isSuperAdmin ? '#fbbf24' : '#38bdf8',
                   padding: '1px 5px',
                   borderRadius: '4px',
-                  border: '1px solid rgba(56, 189, 248, 0.4)',
+                  border: isSuperAdmin ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(56, 189, 248, 0.4)',
                   letterSpacing: '0.04em',
                 }}
               >
@@ -565,7 +671,7 @@ export const AiAssistantChatbot: React.FC = () => {
             <span
               style={{
                 fontSize: '10px',
-                color: '#4ade80',
+                color: isSuperAdmin ? '#fbbf24' : '#4ade80',
                 fontWeight: 600,
                 display: 'flex',
                 alignItems: 'center',
@@ -577,11 +683,11 @@ export const AiAssistantChatbot: React.FC = () => {
                   width: '5px',
                   height: '5px',
                   borderRadius: '50%',
-                  backgroundColor: '#4ade80',
-                  boxShadow: '0 0 6px #4ade80',
+                  backgroundColor: isSuperAdmin ? '#fbbf24' : '#4ade80',
+                  boxShadow: isSuperAdmin ? '0 0 6px #fbbf24' : '0 0 6px #4ade80',
                 }}
               />
-              Online
+              {isSuperAdmin ? 'Platform Admin' : 'Online'}
             </span>
           </div>
         </button>
@@ -602,6 +708,8 @@ export const AiAssistantChatbot: React.FC = () => {
             maxHeight: 'calc(100vh - 48px)',
             transition: isDraggingWindow ? 'none' : 'width 0.25s ease, height 0.25s ease',
             animation: !windowPos ? 'slideUpFade 0.2s cubic-bezier(0.4, 0, 0.2, 1)' : undefined,
+            borderColor: isSuperAdmin ? 'rgba(245, 158, 11, 0.4)' : undefined,
+            boxShadow: isSuperAdmin ? '0 24px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(245, 158, 11, 0.3)' : undefined,
           }}
         >
           {/* Header (Draggable) */}
@@ -613,6 +721,9 @@ export const AiAssistantChatbot: React.FC = () => {
             onPointerCancel={handlePointerUpHeader}
             onDoubleClick={() => setWindowPos(null)}
             title="Drag header to move chat window • Double-click to reset position"
+            style={{
+              borderBottomColor: isSuperAdmin ? 'rgba(245, 158, 11, 0.25)' : undefined
+            }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', pointerEvents: 'none' }}>
               <div
@@ -620,14 +731,14 @@ export const AiAssistantChatbot: React.FC = () => {
                   width: '34px',
                   height: '34px',
                   borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #ffffff, #a3a3a3)',
+                  background: isSuperAdmin ? 'linear-gradient(135deg, #fbbf24, #f59e0b, #d97706)' : 'linear-gradient(135deg, #ffffff, #a3a3a3)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#000000',
+                  color: isSuperAdmin ? '#ffffff' : '#000000',
                   fontWeight: 800,
                   fontSize: '15px',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+                  boxShadow: isSuperAdmin ? '0 2px 8px rgba(245, 158, 11, 0.45)' : '0 2px 8px rgba(0, 0, 0, 0.4)',
                 }}
               >
                 <IconSparkles size={18} />
@@ -644,24 +755,24 @@ export const AiAssistantChatbot: React.FC = () => {
                     letterSpacing: '0.02em',
                   }}
                 >
-                  DOST
+                  {isSuperAdmin ? 'DOST 👑' : 'DOST'}
                   <span
                     style={{
                       fontSize: '10px',
-                      background: 'var(--primary-light)',
-                      color: 'var(--primary-hover)',
+                      background: isSuperAdmin ? 'rgba(245, 158, 11, 0.15)' : 'var(--primary-light)',
+                      color: isSuperAdmin ? '#fbbf24' : 'var(--primary-hover)',
                       padding: '1px 6px',
                       borderRadius: '4px',
                       fontWeight: 700,
                     }}
                   >
-                    AI Action Companion
+                    {isSuperAdmin ? 'Global SaaS Platform' : 'AI Action Companion'}
                   </span>
                 </div>
                 <div
                   style={{
                     fontSize: '11px',
-                    color: 'var(--success)',
+                    color: isSuperAdmin ? '#fbbf24' : 'var(--success)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px',
@@ -672,10 +783,10 @@ export const AiAssistantChatbot: React.FC = () => {
                       width: '6px',
                       height: '6px',
                       borderRadius: '50%',
-                      background: 'var(--success)',
+                      background: isSuperAdmin ? '#fbbf24' : 'var(--success)',
                     }}
                   ></span>
-                  Online • {activeOrg?.organizationName || 'Live Workspace'}
+                  {isSuperAdmin ? 'SaaS System Control Mode' : `Online • ${activeOrg?.organizationName || 'Live Workspace'}`}
                 </div>
               </div>
             </div>
@@ -933,9 +1044,9 @@ export const AiAssistantChatbot: React.FC = () => {
                                         summaryDetails: prev.summaryDetails.map((s) =>
                                           s.label === 'Customer'
                                             ? {
-                                                ...s,
-                                                value: cust?.businessName || cust?.name || '—',
-                                              }
+                                              ...s,
+                                              value: cust?.businessName || cust?.name || '—',
+                                            }
                                             : s
                                         ),
                                       };
@@ -1182,6 +1293,76 @@ export const AiAssistantChatbot: React.FC = () => {
                             </div>
                           )}
 
+                        {/* Interactive Controls for START_SUPPORT_SESSION */}
+                        {m.action.actionType === 'START_SUPPORT_SESSION' &&
+                          m.action.status === 'PENDING' && (
+                            <div
+                              style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px',
+                                backgroundColor: 'rgba(0, 0, 0, 0.25)',
+                                padding: '10px',
+                                borderRadius: '6px',
+                              }}
+                            >
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <label style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>
+                                  Target User Email / ID:
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="e.g. admin@tenant.com"
+                                  value={m.action.params.targetUserId}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    handleUpdateActionParams(m.id, (prev) => ({
+                                      ...prev,
+                                      params: { ...prev.params, targetUserId: val },
+                                    }));
+                                  }}
+                                  style={{
+                                    fontSize: '12px',
+                                    padding: '5px 8px',
+                                    backgroundColor: 'var(--bg-elevated)',
+                                    color: 'var(--text-primary)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '4px',
+                                  }}
+                                />
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <label style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>
+                                  Reason for Support:
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="e.g. Resolving billing discrepancy"
+                                  value={m.action.params.reason}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    handleUpdateActionParams(m.id, (prev) => ({
+                                      ...prev,
+                                      params: { ...prev.params, reason: val },
+                                      summaryDetails: [
+                                        ...prev.summaryDetails.filter(s => s.label !== 'Reason'),
+                                        { label: 'Reason', value: val }
+                                      ]
+                                    }));
+                                  }}
+                                  style={{
+                                    fontSize: '12px',
+                                    padding: '5px 8px',
+                                    backgroundColor: 'var(--bg-elevated)',
+                                    color: 'var(--text-primary)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '4px',
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )}
+
                         {/* Interactive Controls for MOVE_STOCK */}
                         {m.action.actionType === 'MOVE_STOCK' &&
                           m.action.status === 'PENDING' &&
@@ -1240,11 +1421,10 @@ export const AiAssistantChatbot: React.FC = () => {
                                             },
                                             {
                                               label: 'Movement Type',
-                                              value: `${moveType} (${
-                                                moveType === 'IN'
-                                                  ? 'Inward / Add'
-                                                  : 'Outward / Deduct'
-                                              })`,
+                                              value: `${moveType} (${moveType === 'IN'
+                                                ? 'Inward / Add'
+                                                : 'Outward / Deduct'
+                                                })`,
                                               color:
                                                 moveType === 'IN'
                                                   ? 'var(--success)'
@@ -1861,21 +2041,21 @@ export const AiAssistantChatbot: React.FC = () => {
                             ch.status === 'CONFIRMED'
                               ? '#22c55e'
                               : ch.status === 'CANCELLED'
-                              ? '#ef4444'
-                              : '#f59e0b';
+                                ? '#ef4444'
+                                : '#f59e0b';
                           const statusBg =
                             ch.status === 'CONFIRMED'
                               ? 'rgba(34, 197, 94, 0.15)'
                               : ch.status === 'CANCELLED'
-                              ? 'rgba(239, 68, 68, 0.15)'
-                              : 'rgba(245, 158, 11, 0.15)';
+                                ? 'rgba(239, 68, 68, 0.15)'
+                                : 'rgba(245, 158, 11, 0.15)';
 
                           const computedTotalAmount = Array.isArray(ch.items)
                             ? ch.items.reduce(
-                                (sum: number, it: any) =>
-                                  sum + (Number(it.unitPrice || 0) * Number(it.quantity || 0)),
-                                0
-                              )
+                              (sum: number, it: any) =>
+                                sum + (Number(it.unitPrice || 0) * Number(it.quantity || 0)),
+                              0
+                            )
                             : 0;
 
                           return (
@@ -2017,13 +2197,13 @@ export const AiAssistantChatbot: React.FC = () => {
                           const stockColor = isCritical
                             ? '#ef4444'
                             : isLow
-                            ? '#f59e0b'
-                            : '#22c55e';
+                              ? '#f59e0b'
+                              : '#22c55e';
                           const stockStatus = isCritical
                             ? 'OUT OF STOCK'
                             : isLow
-                            ? 'LOW STOCK'
-                            : 'HEALTHY';
+                              ? 'LOW STOCK'
+                              : 'HEALTHY';
 
                           return (
                             <div
@@ -2408,103 +2588,418 @@ export const AiAssistantChatbot: React.FC = () => {
                         </div>
                       </div>
                     )}
-                  </div>
 
-                  {/* Contextual Suggested Prompt Chips */}
-                  {m.suggestedPrompts && m.suggestedPrompts.length > 0 && isAi && (
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '5px',
-                        marginTop: '8px',
-                        paddingLeft: '2px',
-                      }}
-                    >
-                      {m.suggestedPrompts.map((p) => (
-                        <button
-                          key={p}
-                          onClick={() => void handleSend(p)}
+                    {/* ==================================================== */}
+                    {/* RICH CARD RENDERER: SYSTEM HEALTH */}
+                    {/* ==================================================== */}
+                    {m.cardData && m.cardData.type === 'system_health' && m.cardData.stats && (
+                      <div
+                        style={{
+                          marginTop: '12px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          padding: '10px',
+                          borderRadius: '8px',
+                          border: '1.5px solid rgba(245, 158, 11, 0.3)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Database Status:</span>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              color: m.cardData.stats.dbStatus === 'healthy' ? '#22c55e' : '#ef4444',
+                              backgroundColor: m.cardData.stats.dbStatus === 'healthy' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                            }}
+                          >
+                            ● ONLINE
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px' }}>
+                          <span style={{ color: 'var(--text-secondary)' }}>DB Response Latency:</span>
+                          <strong style={{ color: m.cardData.stats.dbLatencyMs < 50 ? 'var(--success)' : '#f59e0b' }}>
+                            {m.cardData.stats.dbLatencyMs} ms
+                          </strong>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px' }}>
+                          <span style={{ color: 'var(--text-secondary)' }}>Uptime:</span>
+                          <strong style={{ color: 'var(--text-primary)' }}>
+                            {(m.cardData.stats.uptime / 3600 / 24).toFixed(2)} Days
+                          </strong>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px' }}>
+                          <span style={{ color: 'var(--text-secondary)' }}>Environment:</span>
+                          <strong style={{ color: '#38bdf8' }}>{m.cardData.stats.environment.toUpperCase()}</strong>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ==================================================== */}
+                    {/* RICH CARD RENDERER: PLATFORM METRICS */}
+                    {/* ==================================================== */}
+                    {m.cardData && m.cardData.type === 'platform_metrics' && m.cardData.stats && (
+                      <div
+                        style={{
+                          marginTop: '12px',
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(2, 1fr)',
+                          gap: '6px',
+                        }}
+                      >
+                        <div style={{ background: 'var(--bg-elevated)', padding: '8px 10px', borderRadius: '6px', border: '1.5px solid rgba(245, 158, 11, 0.25)' }}>
+                          <div style={{ fontSize: '10.5px', color: 'var(--text-tertiary)' }}>Total Tenants</div>
+                          <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>{m.cardData.stats.totalOrganizations}</div>
+                        </div>
+                        <div style={{ background: 'var(--bg-elevated)', padding: '8px 10px', borderRadius: '6px', border: '1.5px solid rgba(245, 158, 11, 0.25)' }}>
+                          <div style={{ fontSize: '10.5px', color: 'var(--text-tertiary)' }}>Active Tenants</div>
+                          <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--success)' }}>{m.cardData.stats.activeOrganizations}</div>
+                        </div>
+                        <div style={{ background: 'var(--bg-elevated)', padding: '8px 10px', borderRadius: '6px', border: '1.5px solid rgba(245, 158, 11, 0.25)' }}>
+                          <div style={{ fontSize: '10.5px', color: 'var(--text-tertiary)' }}>Subscriptions</div>
+                          <div style={{ fontSize: '16px', fontWeight: 800, color: '#38bdf8' }}>{m.cardData.stats.activeSubscriptions}</div>
+                        </div>
+                        <div style={{ background: 'var(--bg-elevated)', padding: '8px 10px', borderRadius: '6px', border: '1.5px solid rgba(245, 158, 11, 0.25)' }}>
+                          <div style={{ fontSize: '10.5px', color: 'var(--text-tertiary)' }}>Pending Payments</div>
+                          <div style={{ fontSize: '16px', fontWeight: 800, color: '#f59e0b' }}>{m.cardData.stats.pendingPaymentRequests}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ==================================================== */}
+                    {/* RICH CARD RENDERER: TENANT ORGANIZATIONS */}
+                    {/* ==================================================== */}
+                    {m.cardData && m.cardData.type === 'organizations' && m.cardData.items && (
+                      <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {m.cardData.items.map((org: any) => {
+                          const statusColor = org.status === 'ACTIVE' ? '#22c55e' : org.status === 'SUSPENDED' ? '#ef4444' : '#f59e0b';
+                          return (
+                            <div
+                              key={org.id}
+                              style={{
+                                background: 'var(--bg-elevated)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '10px 12px',
+                                fontSize: '12px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px',
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <strong style={{ color: 'var(--text-primary)', fontSize: '13px' }}>{org.name}</strong>
+                                <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', color: statusColor, backgroundColor: `${statusColor}18` }}>
+                                  {org.status}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                <span>🔑 Slug: <strong>{org.slug}</strong></span>
+                                <span>Plan: <strong style={{ color: '#38bdf8' }}>{org.activeSubscription?.planName || 'TRIAL'}</strong></span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '6px', color: 'var(--text-tertiary)' }}>
+                                <span>👥 {org.counts.memberships} Users • 📦 {org.counts.products} Prods</span>
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  <button
+                                    onClick={() => void handleSend(`${org.status === 'ACTIVE' ? 'Suspend' : 'Activate'} org ${org.slug}`)}
+                                    style={{
+                                      background: 'rgba(255, 255, 255, 0.04)',
+                                      border: '1px solid var(--border-color)',
+                                      color: org.status === 'ACTIVE' ? '#ef4444' : '#22c55e',
+                                      padding: '2px 6px',
+                                      borderRadius: '4px',
+                                      fontSize: '10px',
+                                      fontWeight: 700,
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    {org.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                                  </button>
+                                  <button
+                                    onClick={() => void handleSend(`impersonate for ${org.slug}`)}
+                                    style={{
+                                      background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                                      border: 'none',
+                                      color: '#ffffff',
+                                      padding: '2px 8px',
+                                      borderRadius: '4px',
+                                      fontSize: '10px',
+                                      fontWeight: 800,
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    Support
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* ==================================================== */}
+                    {/* RICH CARD RENDERER: UPI PAYMENT REQUESTS */}
+                    {/* ==================================================== */}
+                    {m.cardData && m.cardData.type === 'payment_requests' && m.cardData.items && (
+                      <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {m.cardData.items.map((pay: any) => (
+                          <div
+                            key={pay.id}
+                            style={{
+                              background: 'var(--bg-elevated)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: '8px',
+                              padding: '10px 12px',
+                              fontSize: '12px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '6px',
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <strong style={{ color: 'var(--text-primary)' }}>{pay.organization?.name || 'Tenant'}</strong>
+                              <strong style={{ color: 'var(--success)' }}>₹{Number(pay.amountINR).toLocaleString('en-IN')}</strong>
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                              UTR: <span style={{ fontFamily: 'var(--font-mono)', color: '#38bdf8' }}>{pay.referenceNumber}</span> • Plan: {pay.plan?.name || 'Growth'}
+                            </div>
+                            {pay.proofUrl && (
+                              <a
+                                href={pay.proofUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ fontSize: '11px', color: 'var(--primary-hover)', textDecoration: 'underline', alignSelf: 'flex-start' }}
+                              >
+                                🖼️ View Payment Proof Screenshot
+                              </a>
+                            )}
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '6px' }}>
+                              <button
+                                onClick={() => void handleSend(`reject payment ${pay.referenceNumber}`)}
+                                style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', borderRadius: '4px', fontSize: '10px', fontWeight: 700, padding: '3px 8px', cursor: 'pointer' }}
+                              >
+                                Decline
+                              </button>
+                              <button
+                                onClick={() => void handleSend(`approve payment ${pay.referenceNumber}`)}
+                                style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.3)', color: '#22c55e', borderRadius: '4px', fontSize: '10px', fontWeight: 700, padding: '3px 8px', cursor: 'pointer' }}
+                              >
+                                Approve
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* ==================================================== */}
+                    {/* RICH CARD RENDERER: PLATFORM AUDIT LOGS */}
+                    {/* ==================================================== */}
+                    {m.cardData && m.cardData.type === 'audit_logs' && m.cardData.items && (
+                      <div
+                        style={{
+                          marginTop: '12px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
+                          maxHeight: '260px',
+                          overflowY: 'auto',
+                          backgroundColor: 'rgba(0, 0, 0, 0.15)',
+                          padding: '6px',
+                          borderRadius: '6px',
+                        }}
+                      >
+                        {m.cardData.items.map((log: any) => (
+                          <div
+                            key={log.id}
+                            style={{
+                              padding: '6px 8px',
+                              borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
+                              fontSize: '11px',
+                              lineHeight: '1.35',
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <strong style={{ color: '#38bdf8' }}>{log.actor?.name || 'System'}</strong>
+                              <span style={{ color: 'var(--text-tertiary)', fontSize: '10px' }}>{new Date(log.createdAt).toLocaleTimeString()}</span>
+                            </div>
+                            <div style={{ color: 'var(--text-secondary)', marginTop: '2px' }}>
+                              {log.action} • {log.resource}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* ==================================================== */}
+                    {/* RICH CARD RENDERER: PRODUCT VELOCITY REPORT */}
+                    {/* ==================================================== */}
+                    {m.cardData && m.cardData.type === 'product_velocity' && m.cardData.stats && (() => {
+                      const stats = m.cardData.stats;
+                      const product = stats.product;
+                      return (
+                        <div
                           style={{
-                            fontSize: '11px',
-                            fontWeight: 500,
-                            padding: '3px 8px',
-                            borderRadius: '6px',
-                            backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                            color: 'var(--text-secondary)',
-                            border: '1px solid var(--border-color)',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.color = 'var(--text-primary)';
-                            e.currentTarget.style.borderColor = 'var(--primary)';
-                            e.currentTarget.style.backgroundColor = 'var(--primary-light)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.color = 'var(--text-secondary)';
-                            e.currentTarget.style.borderColor = 'var(--border-color)';
-                            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
+                            marginTop: '12px',
+                            background: 'var(--bg-elevated)',
+                            border: '1.5px solid rgba(56, 189, 248, 0.35)',
+                            borderRadius: '10px',
+                            padding: '12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px',
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
                           }}
                         >
-                          ⚡ {p}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <strong style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
+                              {product.name}
+                            </strong>
+                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+                              {product.sku}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '11.5px', backgroundColor: 'rgba(0, 0, 0, 0.2)', padding: '8px', borderRadius: '6px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-secondary)' }}>Current Stock:</span>
+                              <strong style={{ color: stats.reorderRecommended ? '#ef4444' : '#22c55e' }}>{product.currentStock} units</strong>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-secondary)' }}>Minimum Stock:</span>
+                              <strong>{product.minimumStock} units</strong>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-secondary)' }}>30-Day Dispatched:</span>
+                              <strong>{stats.totalDispatched} units</strong>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-secondary)' }}>Sales Velocity:</span>
+                              <strong>{stats.dailyVelocity.toFixed(2)} units/day</strong>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '5px', marginTop: '3px' }}>
+                              <span style={{ color: 'var(--text-secondary)' }}>Days to Stockout:</span>
+                              <strong style={{ color: stats.daysToStockout && stats.daysToStockout < 10 ? '#ef4444' : 'var(--text-primary)' }}>
+                                {stats.daysToStockout ? `${stats.daysToStockout} days` : 'Infinite / Stable'}
+                              </strong>
+                            </div>
+                          </div>
+                          {stats.reorderRecommended && (
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                              <button
+                                onClick={() => void handleSend(`Inward 50 stock for ${product.name}`)}
+                                style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#ffffff', borderRadius: '5px', padding: '4px 10px', fontSize: '10.5px', fontWeight: 700, cursor: 'pointer' }}
+                              >
+                                📥 Inward Restock (50x)
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
 
-                  <span
+                  {/* Contextual Suggested Prompt Chips */ }
+                  {
+                m.suggestedPrompts && m.suggestedPrompts.length > 0 && isAi && (
+                  <div
                     style={{
-                      fontSize: '10px',
-                      color: 'var(--text-tertiary)',
-                      marginTop: '4px',
-                      padding: '0 4px',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '5px',
+                      marginTop: '8px',
+                      paddingLeft: '2px',
                     }}
                   >
-                    {m.timestamp}
-                  </span>
-                </div>
-              );
+                    {m.suggestedPrompts.map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => void handleSend(p)}
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                          color: 'var(--text-secondary)',
+                          border: '1px solid var(--border-color)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = 'var(--text-primary)';
+                          e.currentTarget.style.borderColor = 'var(--primary)';
+                          e.currentTarget.style.backgroundColor = 'var(--primary-light)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = 'var(--text-secondary)';
+                          e.currentTarget.style.borderColor = 'var(--border-color)';
+                          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
+                        }}
+                      >
+                        ⚡ {p}
+                      </button>
+                    ))}
+                  </div>
+                )
+              }
+
+              < span
+                    style = {{
+              fontSize: '10px',
+              color: 'var(--text-tertiary)',
+              marginTop: '4px',
+              padding: '0 4px',
+            }}
+                  >
+            {m.timestamp}
+          </span>
+        </div>
+      );
             })}
 
-            {isTyping && (
-              <div
-                style={{
-                  alignSelf: 'flex-start',
-                  padding: '10px 14px',
-                  borderRadius: '4px 14px 14px 14px',
-                  backgroundColor: 'var(--bg-tertiary)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-secondary)',
-                  fontSize: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                <div
-                  className="spinner"
-                  style={{ width: '12px', height: '12px', borderWidth: '2px' }}
-                ></div>
-                DOST is preparing action and querying live records...
-              </div>
-            )}
+      {isTyping && (
+        <div
+          style={{
+            alignSelf: 'flex-start',
+            padding: '10px 14px',
+            borderRadius: '4px 14px 14px 14px',
+            backgroundColor: 'var(--bg-tertiary)',
+            border: '1px solid var(--border-color)',
+            color: 'var(--text-secondary)',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <div
+            className="spinner"
+            style={{ width: '12px', height: '12px', borderWidth: '2px' }}
+          ></div>
+          DOST is preparing action and querying live records...
+        </div>
+      )}
 
-            <div ref={messagesEndRef} />
-          </div>
+      <div ref={messagesEndRef} />
+    </div >
 
-          {/* Input Bar */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void handleSend();
-            }}
-            style={{
-              padding: '12px 14px',
-              backgroundColor: 'var(--bg-tertiary)',
-              borderTop: '1px solid var(--border-color)',
-              display: 'flex',
-              gap: '8px',
+      {/* Input Bar */ }
+      < form
+  onSubmit = {(e) => {
+  e.preventDefault();
+  void handleSend();
+}}
+style = {{
+  padding: '12px 14px',
+    backgroundColor: 'var(--bg-tertiary)',
+      borderTop: '1px solid var(--border-color)',
+        display: 'flex',
+          gap: '8px',
             }}
           >
             <input
@@ -2537,8 +3032,8 @@ export const AiAssistantChatbot: React.FC = () => {
             >
               <IconSend size={15} />
             </button>
-          </form>
-        </div>
+          </form >
+        </div >
       )}
     </>
   );

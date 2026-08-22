@@ -4,10 +4,24 @@ import { challanService } from '../services/challan.service';
 import { dashboardService } from '../services/dashboard.service';
 import { reportService } from '../services/report.service';
 import { bomService } from '../services/bom.service';
+import { platformService } from '../services/platform.service';
 import type { User, UserOrganizationSummary } from '../types';
 
 export interface CopilotCardData {
-  type: 'products' | 'customers' | 'stats' | 'challans' | 'movements' | 'valuation' | 'bom';
+  type:
+    | 'products'
+    | 'customers'
+    | 'stats'
+    | 'challans'
+    | 'movements'
+    | 'valuation'
+    | 'bom'
+    | 'platform_metrics'
+    | 'system_health'
+    | 'organizations'
+    | 'payment_requests'
+    | 'audit_logs'
+    | 'product_velocity';
   items?: any[];
   stats?: any;
   categoryBreakdown?: any[];
@@ -29,7 +43,11 @@ export interface CopilotActionPayload {
     | 'CANCEL_CHALLAN'
     | 'CREATE_CUSTOMER'
     | 'CREATE_PRODUCT'
-    | 'BUILD_BOM_ASSEMBLY';
+    | 'BUILD_BOM_ASSEMBLY'
+    | 'UPDATE_ORG_STATUS'
+    | 'REVIEW_PAYMENT'
+    | 'START_SUPPORT_SESSION'
+    | 'UPDATE_PRODUCT_DETAILS';
   isSerious?: boolean;
   seriousWarning?: string;
   title: string;
@@ -65,6 +83,7 @@ export interface CopilotResponse {
 interface UserContext {
   user: User | null;
   activeOrg: UserOrganizationSummary | null;
+  isSuperAdmin?: boolean;
 }
 
 // Built-in BOM Recipes Catalog
@@ -326,6 +345,43 @@ export async function executeCopilotAction(action: CopilotActionPayload): Promis
         };
       }
 
+      case 'UPDATE_ORG_STATUS': {
+        const { orgId, status, name } = action.params;
+        await platformService.updateOrganizationStatus(orgId, status);
+        return {
+          success: true,
+          message: `🏢 Organization **${name}** status successfully updated to **${status}**!`,
+        };
+      }
+
+      case 'REVIEW_PAYMENT': {
+        const { paymentRequestId, approve, referenceNumber } = action.params;
+        await platformService.reviewPaymentRequest(paymentRequestId, approve);
+        return {
+          success: true,
+          message: `💳 UPI Payment request **#${referenceNumber}** has been **${approve ? 'APPROVED & ACTIVATED' : 'REJECTED'}**!`,
+        };
+      }
+
+      case 'START_SUPPORT_SESSION': {
+        const res = await platformService.startSupportSession(action.params);
+        return {
+          success: true,
+          message: `🚀 Impersonation Support Session initialized for **${res.data.targetUser.name}** in organization **${res.data.targetOrganization.name}**!`,
+          data: res.data,
+        };
+      }
+
+      case 'UPDATE_PRODUCT_DETAILS': {
+        const { productId, name, ...fields } = action.params;
+        const res = await productService.updateProduct(productId, fields);
+        return {
+          success: true,
+          message: `✅ Product **${res.data.name || name}** updated successfully!`,
+          data: res.data,
+        };
+      }
+
       default:
         throw new Error('Unsupported action type');
     }
@@ -345,6 +401,398 @@ export async function executeCopilotAction(action: CopilotActionPayload): Promis
 /**
  * Main Copilot & DOST Action & Natural Language Engine
  */
+/**
+ * Specialized Natural Language Engine for Platform Super Administrator commands
+ */
+async function processPlatformAdminQuery(
+  rawQuery: string,
+  clean: string,
+  _rawLower: string,
+  _context: UserContext
+): Promise<CopilotResponse> {
+  // 1. SYSTEM HEALTH / DB STATUS / TELEMETRY
+  if (
+    clean.includes('health') ||
+    clean.includes('telemetry') ||
+    clean.includes('db status') ||
+    clean.includes('latency') ||
+    clean.includes('uptime') ||
+    clean.includes('database') ||
+    clean.includes('system')
+  ) {
+    try {
+      const res = await platformService.getOverview();
+      const h = res.data.systemHealth;
+      return {
+        text: `🩺 **Global SaaS System Telemetry & Health Check:**\n\n• **Database Status**: **${h.dbStatus}**\n• **DB Latency**: ${h.dbLatencyMs}ms\n• **Uptime**: ${(h.uptime / 3600 / 24).toFixed(2)} days\n• **Environment**: ${h.environment.toUpperCase()}`,
+        cardData: {
+          type: 'system_health',
+          stats: h,
+        },
+        suggestedPrompts: [
+          'Show platform overview metrics',
+          'List tenant organizations',
+          'Show pending payments',
+        ],
+      };
+    } catch (err: any) {
+      return {
+        text: `⚠️ Failed to retrieve system health metrics. Please check connection. Error: ${err.message}`,
+      };
+    }
+  }
+
+  // 2. PLATFORM OVERVIEW / METRICS
+  if (
+    clean.includes('overview') ||
+    clean.includes('stats') ||
+    clean.includes('metrics') ||
+    clean.includes('kpi') ||
+    clean.includes('summary')
+  ) {
+    try {
+      const res = await platformService.getOverview();
+      const m = res.data.metrics;
+      return {
+        text: `👑 **Global SaaS Platform Administration Overview:**\n\n• **Total Organizations**: ${m.totalOrganizations}\n• **Active Organizations**: ${m.activeOrganizations}\n• **Active Subscriptions**: ${m.activeSubscriptions}\n• **Total Registered Users**: ${m.totalUsers}\n• **Pending Payments Queue**: ${m.pendingPaymentRequests} requests\n• **Global Security Audit Logs**: ${m.totalAuditLogs} entries`,
+        cardData: {
+          type: 'platform_metrics',
+          stats: m,
+        },
+        suggestedPrompts: [
+          'Show system health telemetry',
+          'List tenant organizations',
+          'Show pending payments',
+        ],
+      };
+    } catch (err: any) {
+      return {
+        text: `⚠️ Failed to retrieve platform stats. Error: ${err.message}`,
+      };
+    }
+  }
+
+  // 3. PENDING PAYMENTS & REVIEW
+  const approveMatch = clean.includes('approve payment') || clean.includes('confirm payment');
+  const rejectMatch = clean.includes('reject payment') || clean.includes('cancel payment request');
+  if (
+    clean.includes('payment') ||
+    clean.includes('receipt') ||
+    clean.includes('utr') ||
+    clean.includes('upi') ||
+    approveMatch ||
+    rejectMatch
+  ) {
+    try {
+      const res = await platformService.getPaymentRequests();
+      const payments = res.data || [];
+
+      // Extract UTR/Reference or ID if confirming/rejecting
+      const refMatch = rawQuery.match(/[A-Za-z0-9-]{6,}/);
+      const targetRef = refMatch ? refMatch[0] : '';
+      
+      const targetPayment = payments.find(
+        (p) =>
+          p.referenceNumber === targetRef ||
+          p.id === targetRef ||
+          clean.includes(p.referenceNumber.toLowerCase())
+      );
+
+      if ((approveMatch || rejectMatch) && targetPayment) {
+        const isApprove = approveMatch;
+        return {
+          text: `🛡️ **Reviewing Manual UPI Payment Request (${targetPayment.referenceNumber}):**\n\nAuthorize or decline the subscription plan change:`,
+          action: {
+            id: `pay-review-${Date.now()}`,
+            actionType: 'REVIEW_PAYMENT',
+            title: `${isApprove ? 'Approve' : 'Reject'} Payment Reference #${targetPayment.referenceNumber}`,
+            description: `${isApprove ? 'Approving' : 'Rejecting'} this payment will ${isApprove ? 'activate' : 'deny'} the subscription and update the tenant organization's commercial limits.`,
+            summaryDetails: [
+              { label: 'Organization', value: targetPayment.organization?.name || 'Tenant', highlight: true },
+              { label: 'UTR Reference', value: targetPayment.referenceNumber, highlight: true },
+              { label: 'Amount (INR)', value: `₹${Number(targetPayment.amountINR).toLocaleString('en-IN')}`, color: 'var(--success)' },
+              { label: 'Subscription Plan', value: targetPayment.plan?.name || 'Growth' },
+              { label: 'Billing Cycle', value: targetPayment.billingCycle },
+              { label: 'Recommendation', value: isApprove ? 'Approve' : 'Reject', color: isApprove ? 'var(--success)' : 'var(--danger)' },
+            ],
+            params: {
+              paymentRequestId: targetPayment.id,
+              referenceNumber: targetPayment.referenceNumber,
+              amount: targetPayment.amountINR,
+              approve: isApprove,
+            },
+            status: 'PENDING',
+          },
+          suggestedPrompts: ['Show platform overview metrics', 'Show pending payments'],
+        };
+      }
+
+      if (payments.length === 0) {
+        return {
+          text: `✅ **Payment Approval Queue is Empty!**\n\nAll tenant payments have been verified. There are no manual UPI references pending review.`,
+          suggestedPrompts: ['Show platform overview metrics', 'List tenant organizations'],
+        };
+      }
+
+      return {
+        text: `💳 Found **${payments.length} Pending manual UPI payments** awaiting verification:`,
+        cardData: {
+          type: 'payment_requests',
+          items: payments,
+        },
+        suggestedPrompts: [
+          `Approve payment ${payments[0].referenceNumber}`,
+          `Reject payment ${payments[0].referenceNumber}`,
+          'Show platform overview metrics',
+        ],
+      };
+    } catch (err: any) {
+      return {
+        text: `⚠️ Failed to query payment requests. Error: ${err.message}`,
+      };
+    }
+  }
+
+  // 4. TENANT LIFE CYCLE & ORGANIZATION STATUS
+  const suspendMatch = clean.includes('suspend org') || clean.includes('suspend organization');
+  const activateMatch = clean.includes('activate org') || clean.includes('activate organization');
+  if (
+    clean.includes('organization') ||
+    clean.includes('tenant') ||
+    clean.includes('orgs') ||
+    clean.includes('company') ||
+    suspendMatch ||
+    activateMatch
+  ) {
+    try {
+      const res = await platformService.getOrganizations();
+      const orgs = res.data || [];
+
+      // Extract organization slug or name
+      const queryWords = clean.split(' ');
+      let searchSlug = '';
+      if (suspendMatch || activateMatch) {
+        const matchIdx = queryWords.findIndex(w => w === 'org' || w === 'organization');
+        if (matchIdx !== -1 && matchIdx < queryWords.length - 1) {
+          searchSlug = queryWords.slice(matchIdx + 1).join('-');
+        }
+      }
+
+      const targetOrg = orgs.find(
+        (o) =>
+          o.slug === searchSlug ||
+          o.name.toLowerCase().includes(searchSlug.replace(/-/g, ' ')) ||
+          o.slug.includes(searchSlug)
+      );
+
+      if ((suspendMatch || activateMatch) && targetOrg) {
+        const nextStatus = suspendMatch ? 'SUSPENDED' : 'ACTIVE';
+        if (targetOrg.status === nextStatus) {
+          return {
+            text: `ℹ️ Organization **${targetOrg.name}** is already **${targetOrg.status}**. No change needed.`,
+            suggestedPrompts: ['List tenant organizations'],
+          };
+        }
+
+        return {
+          text: `⚠️ **Toggle Tenant Organization Status:**\n\nConfirm if you want to set organization status to **${nextStatus}**:`,
+          action: {
+            id: `org-status-${Date.now()}`,
+            actionType: 'UPDATE_ORG_STATUS',
+            title: `${suspendMatch ? 'Suspend' : 'Activate'} Organization ${targetOrg.name}`,
+            description: suspendMatch
+              ? `🚨 **Warning**: Suspending **${targetOrg.name}** will immediately block all its users from logging in or using the StockPulse platform.`
+              : `Activating **${targetOrg.name}** will restore tenant access and login functionality.`,
+            isSerious: suspendMatch,
+            seriousWarning: suspendMatch
+              ? 'Suspending a client organization instantly cuts user access and blocks active workflows.'
+              : undefined,
+            summaryDetails: [
+              { label: 'Tenant Name', value: targetOrg.name, highlight: true },
+              { label: 'Slug', value: targetOrg.slug },
+              { label: 'Active Users', value: `${targetOrg.counts.memberships} active members` },
+              { label: 'Current Status', value: targetOrg.status },
+              { label: 'Target Status', value: nextStatus, highlight: true, color: nextStatus === 'ACTIVE' ? 'var(--success)' : 'var(--danger)' },
+            ],
+            params: {
+              orgId: targetOrg.id,
+              name: targetOrg.name,
+              slug: targetOrg.slug,
+              status: nextStatus,
+            },
+            status: 'PENDING',
+          },
+          suggestedPrompts: ['List tenant organizations', 'Show platform overview metrics'],
+        };
+      }
+
+      if (orgs.length === 0) {
+        return {
+          text: `🏢 No tenant organizations found in the system.`,
+        };
+      }
+
+      return {
+        text: `🏢 Here are the **active tenant organizations** on the SaaS platform:`,
+        cardData: {
+          type: 'organizations',
+          items: orgs,
+        },
+        suggestedPrompts: [
+          'Show platform overview metrics',
+          `Suspend org ${orgs[0].slug}`,
+          'Show pending payments',
+        ],
+      };
+    } catch (err: any) {
+      return {
+        text: `⚠️ Failed to fetch tenant list. Error: ${err.message}`,
+      };
+    }
+  }
+
+  // 5. START SUPPORT IMPERSONATION SESSION
+  if (clean.includes('support') || clean.includes('impersonate') || clean.includes('assist')) {
+    try {
+      const res = await platformService.getOrganizations();
+      const orgs = res.data || [];
+
+      const queryWords = clean.split(' ');
+      let searchSlug = '';
+      const startIdx = queryWords.findIndex(w => w === 'for' || w === 'impersonate');
+      if (startIdx !== -1 && startIdx < queryWords.length - 1) {
+        searchSlug = queryWords.slice(startIdx + 1).join('-');
+      }
+
+      const targetOrg = orgs.find(o => o.slug.includes(searchSlug) || o.name.toLowerCase().includes(searchSlug.replace(/-/g, ' '))) || orgs[0];
+
+      if (!targetOrg) {
+        return {
+          text: `⚠️ Could not find a matching organization to start impersonation. Please specify one from the directory.`,
+          suggestedPrompts: ['List tenant organizations'],
+        };
+      }
+
+      return {
+        text: `🛠️ **Launch Super Admin Support Impersonation Session:**\n\nImpersonating a tenant user allows you to view their dashboard and resolve issues. All actions are securely logged in the global audit trail.`,
+        action: {
+          id: `support-${Date.now()}`,
+          actionType: 'START_SUPPORT_SESSION',
+          title: `Start Support Session for Org: ${targetOrg.name}`,
+          description: `This generates a temporary auth token allowing you to impersonate an administrator inside **${targetOrg.name}**.`,
+          isSerious: true,
+          seriousWarning: 'Impersonation gives full tenant control and is strictly audited.',
+          summaryDetails: [
+            { label: 'Target Org', value: targetOrg.name, highlight: true },
+            { label: 'Target Org ID', value: targetOrg.id },
+            { label: 'Audit Log Scoping', value: 'Global Platform Audit', color: '#f59e0b' },
+          ],
+          params: {
+            targetOrganizationId: targetOrg.id,
+            targetUserId: '',
+            reason: '',
+            durationMinutes: 60,
+          },
+          status: 'PENDING',
+        },
+        suggestedPrompts: ['List tenant organizations', 'Show platform overview metrics'],
+      };
+    } catch (err: any) {
+      return {
+        text: `⚠️ Failed to configure support session. Error: ${err.message}`,
+      };
+    }
+  }
+
+  // 6. PLATFORM AUDIT LOGS
+  if (clean.includes('audit') || clean.includes('logs') || clean.includes('global logs')) {
+    try {
+      const res = await platformService.getAuditLogs();
+      const logs = res.data || [];
+      return {
+        text: `📜 **Global Platform Audit Logs (Audit Trail):**`,
+        cardData: {
+          type: 'audit_logs',
+          items: logs.slice(0, 10),
+        },
+        suggestedPrompts: ['Show platform overview metrics', 'Show system health telemetry'],
+      };
+    } catch (err: any) {
+      return {
+        text: `⚠️ Failed to fetch platform audit logs. Error: ${err.message}`,
+      };
+    }
+  }
+
+  return {
+    text: `Hello Admin! I am **DOST**, your Global Platform Admin Assistant. I can help you monitor metrics, inspect health, verify payments, manage tenants, and run support impersonation.`,
+    suggestedPrompts: [
+      'Show platform overview metrics',
+      'Show system health telemetry',
+      'List tenant organizations',
+      'Show pending payments',
+      'Show global audit logs',
+    ],
+  };
+}
+
+/**
+ * Dynamic Response Generator for Restricted Role Access with Tone Adaptation
+ */
+function buildRestrictedRoleResponse(
+  userRole: string,
+  rawQuery: string,
+  operationName: string,
+  defaultPrompts: string[]
+): CopilotResponse {
+  const isQueryShort = rawQuery.length < 20;
+  const isFriendly = /hey|hi|hello|please|dost|buddy/i.test(rawQuery);
+  const isFormal = /request|authorized|access|audit|manager/i.test(rawQuery);
+
+  let prefix = `🚫 **Role Restriction Active**: `;
+  if (isFriendly) {
+    prefix = `Hi there! 👋 While I'd love to help, your current active role as **${userRole}** does not permit executing **${operationName}** actions. `;
+  } else if (isFormal) {
+    prefix = `🛡️ **Security Policy Enforcement**: The requested action (**${operationName}**) requires privileges not granted to the **${userRole}** security group. `;
+  } else {
+    prefix = `🔒 **Access Gate**: Operational control for **${operationName}** is restricted for your role (**${userRole}**). `;
+  }
+
+  let body = '';
+  if (userRole === 'SALES') {
+    body = `As part of the **Sales** team, you can manage CRM contacts, check active dispatches, and draft delivery challans. `;
+  } else if (userRole === 'WAREHOUSE') {
+    body = `In the **Warehouse** role, you can inward or outward stock, manage Bill of Materials (BOM) recipes, and request physical counts. `;
+  } else if (userRole === 'ACCOUNTS') {
+    body = `As an **Accounts** manager, you can audit recent stock movements and inspect overall asset valuations. `;
+  } else {
+    body = `Please contact your Organization Administrator to request an elevation of privileges if this operation is required for your workflow. `;
+  }
+
+  let conclusion = `What would you like to focus on instead? Here are some tasks I can help you with right now:`;
+  if (isQueryShort) {
+    conclusion = `Here are some things you can ask me instead:`;
+  }
+
+  // Adjust suggested prompts according to role
+  let rolePrompts = defaultPrompts;
+  if (userRole === 'SALES') {
+    rolePrompts = ['Create a new challan', 'Show customer leads', 'Show active customers'];
+  } else if (userRole === 'WAREHOUSE') {
+    rolePrompts = ['Inward 20 stock for product', 'Show low stock products', 'Tell me about the bill of materials'];
+  } else if (userRole === 'ACCOUNTS') {
+    rolePrompts = ['What is our total inventory valuation?', 'Recent stock movements', 'Show workspace stats & KPIs'];
+  }
+
+  return {
+    text: `${prefix}${body}\n\n${conclusion}`,
+    suggestedPrompts: rolePrompts,
+  };
+}
+
+/**
+ * Main Copilot & DOST Action & Natural Language Engine
+ */
 export async function processCopilotQuery(
   rawQuery: string,
   context: UserContext
@@ -353,6 +801,252 @@ export async function processCopilotQuery(
   const rawLower = rawQuery.toLowerCase();
   const orgName = context.activeOrg?.organizationName || 'your organization';
   const userName = context.user?.name || 'there';
+
+  // Redirect to Platform Admin Engine if user is Super Administrator
+  if (context.isSuperAdmin) {
+    return processPlatformAdminQuery(rawQuery, clean, rawLower, context);
+  }
+
+  // Extract user role inside targeted organization
+  const userRole = context.activeOrg?.role || context.user?.role || 'SALES';
+
+  // Role Gate Checks for regular business dispatches & operations
+  const isStockAction =
+    clean.includes('move stock') ||
+    clean.includes('add stock') ||
+    clean.includes('inward stock') ||
+    clean.includes('outward stock') ||
+    clean.includes('adjust stock') ||
+    clean.includes('receive stock') ||
+    clean.includes('deduct stock') ||
+    clean.includes('reduce stock') ||
+    clean.includes('restock') ||
+    (clean.includes('stock') && (clean.includes('inward') || clean.includes('outward') || clean.includes('in') || clean.includes('out')));
+
+  const isBomAction =
+    clean.includes('bill of materials') ||
+    clean.includes('bill of material') ||
+    clean.includes('materials') ||
+    clean.includes('bom') ||
+    clean.includes('assembly') ||
+    clean.includes('assemblies') ||
+    clean.includes('manufacturing') ||
+    clean.includes('bundle') ||
+    clean.includes('bundles') ||
+    clean.includes('recipe') ||
+    rawLower.includes('billof');
+
+  const isChallanWriteAction =
+    (clean.includes('create') ||
+      clean.includes('make') ||
+      clean.includes('generate') ||
+      clean.includes('issue') ||
+      clean.includes('draft') ||
+      clean.includes('new challan') ||
+      clean.includes('bill') ||
+      clean.includes('confirm') ||
+      clean.includes('approve') ||
+      clean.includes('finalize') ||
+      clean.includes('cancel') ||
+      clean.includes('void')) &&
+    (clean.includes('challan') ||
+      clean.includes('delivery') ||
+      clean.includes('dispatch') ||
+      rawLower.includes('chalan') ||
+      rawLower.includes('chalana') ||
+      rawLower.includes('challand'));
+
+  const isCustomerWriteAction =
+    (clean.includes('create') || clean.includes('new') || clean.includes('add') || clean.includes('update')) &&
+    (clean.includes('customer') || clean.includes('client') || clean.includes('lead') || clean.includes('crm'));
+
+  const isReportAction =
+    clean.includes('valuation') ||
+    clean.includes('inventory value') ||
+    clean.includes('total value') ||
+    clean.includes('stock value') ||
+    clean.includes('worth') ||
+    clean.includes('asset value') ||
+    clean.includes('top moving') ||
+    clean.includes('fast moving') ||
+    clean.includes('best seller') ||
+    clean.includes('top selling') ||
+    clean.includes('highest sales') ||
+    clean.includes('most sold') ||
+    clean.includes('movement') ||
+    clean.includes('audit stock') ||
+    clean.includes('overview') ||
+    clean.includes('stat') ||
+    clean.includes('summary') ||
+    clean.includes('kpi') ||
+    clean.includes('dashboard');
+
+  const isProductUpdateAction =
+    (clean.includes('update') || clean.includes('set') || clean.includes('change') || clean.includes('velocity')) &&
+    (clean.includes('price') || clean.includes('cost') || clean.includes('reorder') || clean.includes('safety') || clean.includes('product'));
+
+  // Role Gate Enforcement Policy
+  if (userRole !== 'ORG_ADMIN' && userRole !== 'ADMIN') {
+    if (isStockAction && userRole !== 'WAREHOUSE') {
+      return buildRestrictedRoleResponse(
+        userRole,
+        rawQuery,
+        'Manual Stock Movements',
+        ['Show low stock products', 'tell me the pending chalana']
+      );
+    }
+    if (isBomAction && userRole !== 'WAREHOUSE') {
+      return buildRestrictedRoleResponse(
+        userRole,
+        rawQuery,
+        'Bill of Materials & Assemblies',
+        ['Show low stock products', 'tell me the pending chalana']
+      );
+    }
+    if (isChallanWriteAction && userRole !== 'SALES' && userRole !== 'WAREHOUSE') {
+      return buildRestrictedRoleResponse(
+        userRole,
+        rawQuery,
+        'Delivery Challan Modification',
+        ['Show low stock products', 'tell me the pending chalana']
+      );
+    }
+    if (isCustomerWriteAction && userRole !== 'SALES') {
+      return buildRestrictedRoleResponse(
+        userRole,
+        rawQuery,
+        'Customer / Lead Management',
+        ['Show low stock products', 'tell me the pending chalana']
+      );
+    }
+    if (isReportAction && userRole !== 'ACCOUNTS' && userRole !== 'WAREHOUSE') {
+      return buildRestrictedRoleResponse(
+        userRole,
+        rawQuery,
+        'Financial Valuation Reports',
+        ['Show low stock products', 'tell me the pending chalana']
+      );
+    }
+    if (isProductUpdateAction) {
+      return buildRestrictedRoleResponse(
+        userRole,
+        rawQuery,
+        'Product Pricing & Reorder Configurations',
+        ['Show low stock products', 'tell me the pending chalana']
+      );
+    }
+  }
+
+  // -------------------------------------------------------------
+  // INTENT: ENHANCED INVENTORY - UPDATE PRODUCT DETAILS (ORG_ADMIN ONLY)
+  // -------------------------------------------------------------
+  const productSearchTerm = extractEntitySearchTerm(rawQuery);
+  const isUpdateAction = clean.includes('update') || clean.includes('set') || clean.includes('change') || clean.includes('adjust');
+  const isProductField = clean.includes('price') || clean.includes('cost') || clean.includes('reorder') || clean.includes('safety') || clean.includes('minimum');
+
+  if (isUpdateAction && isProductField && (userRole === 'ORG_ADMIN' || userRole === 'ADMIN')) {
+    const targetVal = extractQuantity(rawQuery);
+    if (targetVal !== null) {
+      const searchRes = await productService.getProducts({ search: productSearchTerm, limit: 5 });
+      if (searchRes.data && searchRes.data.length > 0) {
+        const product = searchRes.data[0];
+        let fieldName = '';
+        let label = '';
+        let oldValue = '';
+        let newValueStr = '';
+
+        if (clean.includes('price') || clean.includes('selling price') || clean.includes('unit price')) {
+          fieldName = 'unitPrice';
+          label = 'Selling Price';
+          oldValue = `₹${Number(product.unitPrice).toLocaleString('en-IN')}`;
+          newValueStr = `₹${targetVal.toLocaleString('en-IN')}`;
+        } else if (clean.includes('cost') || clean.includes('cost price')) {
+          fieldName = 'costPrice';
+          label = 'Cost Price';
+          oldValue = `₹${Number((product as any).costPrice || 0).toLocaleString('en-IN')}`;
+          newValueStr = `₹${targetVal.toLocaleString('en-IN')}`;
+        } else if (clean.includes('reorder') || clean.includes('safety') || clean.includes('minimum')) {
+          fieldName = 'minimumStock';
+          label = 'Safety Reorder Point';
+          oldValue = `${product.minimumStock || 0} units`;
+          newValueStr = `${targetVal} units`;
+        }
+
+        if (fieldName) {
+          const actionPayload: CopilotActionPayload = {
+            id: `update-prod-${Date.now()}`,
+            actionType: 'UPDATE_PRODUCT_DETAILS',
+            title: `Update Product: ${product.name}`,
+            description: `Verify and authorize updating the product settings for **${product.name}** (SKU: ${product.sku}).`,
+            isSerious: false,
+            summaryDetails: [
+              { label: 'Product SKU', value: product.sku, highlight: true },
+              { label: 'Attribute', value: label },
+              { label: 'Current Value', value: oldValue },
+              { label: 'New Target Value', value: newValueStr, highlight: true, color: 'var(--success)' },
+            ],
+            params: {
+              productId: product.id,
+              name: product.name,
+              [fieldName]: targetVal,
+            },
+            status: 'PENDING',
+          };
+
+          return {
+            text: `🛡️ **Permission Required to Update Product settings:**\n\nI have prepared the update configuration. Please review and authorize below:`,
+            action: actionPayload,
+            suggestedPrompts: [
+              'Show low stock products',
+              'What is our inventory valuation?',
+            ],
+          };
+        }
+      }
+    }
+  }
+
+  // -------------------------------------------------------------
+  // INTENT: ENHANCED INVENTORY - PRODUCT VELOCITY & STOCKOUT FORECAST
+  // -------------------------------------------------------------
+  if ((clean.includes('velocity') || clean.includes('moving') || clean.includes('run out') || clean.includes('stockout')) && productSearchTerm.length >= 2) {
+    const searchRes = await productService.getProducts({ search: productSearchTerm, limit: 5 });
+    if (searchRes.data && searchRes.data.length > 0) {
+      const product = searchRes.data[0];
+      try {
+        const mvmtRes = await productService.getStockMovements(product.id, { limit: 50 });
+        const movements = mvmtRes.data || [];
+        const outMovements = movements.filter(m => m.type === 'OUT');
+        
+        const totalDispatched = outMovements.reduce((sum, m) => sum + m.quantity, 0);
+        const dailyVelocity = totalDispatched / 30;
+        const daysToStockout = dailyVelocity > 0 ? Math.ceil(product.currentStock / dailyVelocity) : null;
+        const reorderRecommended = product.currentStock <= product.minimumStock;
+
+        return {
+          text: `📈 **Velocity & Stockout Forecast for ${product.name} (SKU: ${product.sku}):**\n\n• **Current Stock**: ${product.currentStock} units\n• **Minimum Safety Stock**: ${product.minimumStock} units\n• **30-Day Outbound Dispatches**: ${totalDispatched} units\n• **Sales Velocity (Average Daily)**: ${dailyVelocity.toFixed(2)} units/day\n• **Projected Stockout**: ${daysToStockout !== null ? `${daysToStockout} days` : 'Stable (No outbound recorded)'}\n• **Reorder Status**: ${reorderRecommended ? '🚨 **REORDER RECOMMENDED**' : '✅ Safe'}`,
+          cardData: {
+            type: 'product_velocity',
+            stats: {
+              product,
+              totalDispatched,
+              dailyVelocity,
+              daysToStockout,
+              reorderRecommended
+            }
+          },
+          suggestedPrompts: [
+            reorderRecommended ? `Inward 50 stock for ${product.name}` : `Update price of ${product.sku} to ${product.unitPrice + 5}`,
+            'Show workspace stats & KPIs',
+          ]
+        };
+      } catch (err: any) {
+        return {
+          text: `🔍 **Stock check for ${product.name}**: Current Stock is **${product.currentStock} units** (Safety Threshold: ${product.minimumStock}). Failed to retrieve detailed velocity metrics.`,
+        };
+      }
+    }
+  }
 
   // =========================================================================
   // INTENT: BILL OF MATERIALS (BOM) & PRODUCTION ASSEMBLIES
@@ -1174,6 +1868,31 @@ export async function processCopilotQuery(
         'tell me the pending chalana',
       ],
     };
+  }
+
+  // -------------------------------------------------------------
+  // 6b. GENERAL PRODUCT LIST / CATALOG INTENT
+  // -------------------------------------------------------------
+  if (
+    clean.includes('product') ||
+    clean.includes('inventory') ||
+    clean.includes('catalog') ||
+    clean.includes('items')
+  ) {
+    const isGeneralListQuery = clean.includes('show') || clean.includes('list') || clean.includes('get') || clean.includes('display') || clean.includes('view');
+    if (isGeneralListQuery && !clean.includes('valuation') && !clean.includes('movement') && !clean.includes('velocity') && !clean.includes('low stock')) {
+      const searchRes = await productService.getProducts({ limit: 6 });
+      const items = searchRes.data || [];
+      return {
+        text: `📦 Here is the current **product inventory catalog** (top ${items.length} items):`,
+        cardData: { type: 'products', items },
+        suggestedPrompts: [
+          'Show low stock products',
+          'What is our total inventory valuation?',
+          'Recent stock movements',
+        ],
+      };
+    }
   }
 
   // -------------------------------------------------------------
