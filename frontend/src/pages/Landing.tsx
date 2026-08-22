@@ -153,16 +153,18 @@ export const Landing: React.FC = () => {
 
       {/* ── Announcement Bar ─────────────────────────────────────────────── */}
       <div className="landing-announcement" role="banner" aria-label="Platform feature highlights">
-        <IconShield size={13} aria-hidden="true" />
-        <span>GST Rule 55 Delivery Challans</span>
-        <span aria-hidden="true" style={{ opacity: 0.3 }}>·</span>
-        <span>BOM Production Assemblies</span>
-        <span aria-hidden="true" style={{ opacity: 0.3 }}>·</span>
-        <span>4-Role Capability RBAC</span>
-        <span aria-hidden="true" style={{ opacity: 0.3 }}>·</span>
-        <span>ACID Inventory Transactions</span>
-        <span aria-hidden="true" style={{ opacity: 0.3 }}>·</span>
-        <span>Customer Financial Ledger</span>
+        <div className="landing-announcement-scroll">
+          <IconShield size={13} aria-hidden="true" />
+          <span>GST Rule 55 Delivery Challans</span>
+          <span aria-hidden="true" style={{ opacity: 0.3 }}>·</span>
+          <span>BOM Production Assemblies</span>
+          <span aria-hidden="true" style={{ opacity: 0.3 }}>·</span>
+          <span>4-Role Capability RBAC</span>
+          <span aria-hidden="true" style={{ opacity: 0.3 }}>·</span>
+          <span>ACID Inventory Transactions</span>
+          <span aria-hidden="true" style={{ opacity: 0.3 }}>·</span>
+          <span>Customer Financial Ledger</span>
+        </div>
       </div>
 
       {/* ── Sticky Top Navigation ───────────────────────────────────────── */}

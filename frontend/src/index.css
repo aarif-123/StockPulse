@@ -3185,14 +3185,19 @@ textarea {
 .landing-announcement {
   background: linear-gradient(90deg, #111111, #555555, #ffffff);
   color: #ffffff;
-  text-align: center;
   padding: 8px 16px;
   font-size: 13px;
   font-weight: 600;
+  overflow: hidden;
+  position: relative;
+}
+
+.landing-announcement-scroll {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 8px;
+  width: 100%;
 }
 
 .landing-navbar {
@@ -6380,6 +6385,11 @@ textarea {
 }
 
 @media (max-width: 1024px) {
+  .modern-pricing-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
   .landing-footer-grid {
     grid-template-columns: 1fr 1fr;
     gap: 28px;
@@ -6424,6 +6434,32 @@ textarea {
 }
 
 @media (max-width: 768px) {
+  .landing-announcement {
+    display: flex;
+    justify-content: flex-start;
+    padding: 8px 0;
+  }
+
+  .landing-announcement-scroll {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    white-space: nowrap;
+    width: max-content;
+    animation: marquee-announcement 24s linear infinite;
+    will-change: transform;
+    flex-shrink: 0;
+  }
+
+  @keyframes marquee-announcement {
+    0% {
+      transform: translate3d(100vw, 0, 0);
+    }
+    100% {
+      transform: translate3d(-100%, 0, 0);
+    }
+  }
+
   .landing-mobile-menu-btn {
     display: flex;
   }
@@ -6526,10 +6562,12 @@ textarea {
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 600px) {
   .landing-hero-stats {
     flex-direction: column;
-    gap: 12px;
+    gap: 0;
+    width: 100%;
+    padding: 8px 16px;
   }
 
   .landing-hero-stat-sep {
@@ -6537,7 +6575,18 @@ textarea {
   }
 
   .landing-hero-stat {
-    padding: 0;
+    padding: 12px 0;
+    width: 100%;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .landing-hero-stat:last-child {
+    border-bottom: none;
+  }
+
+  .modern-pricing-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 
   .roles-grid {
