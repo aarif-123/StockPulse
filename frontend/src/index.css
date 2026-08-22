@@ -10547,85 +10547,8 @@ textarea {
   cursor: grabbing !important;
 }
 
-/* Responsive Card-based layout for super admin tables on mobile */
-@media (max-width: 768px) {
-  .responsive-table, 
-  .responsive-table thead, 
-  .responsive-table tbody, 
-  .responsive-table th, 
-  .responsive-table td, 
-  .responsive-table tr { 
-    display: block !important; 
-    width: 100% !important;
-  }
-  
-  .responsive-table thead tr { 
-    position: absolute !important;
-    top: -9999px !important;
-    left: -9999px !important;
-  }
-  
-  .responsive-table tr {
-    border-bottom: 2px solid #334155 !important;
-    padding: 12px 4px !important;
-    background-color: #1e293b !important;
-  }
-
-  .responsive-table tr:nth-child(even) {
-    background-color: #161f30 !important;
-  }
-  
-  .responsive-table td { 
-    border: none !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important; 
-    position: relative !important;
-    padding: 10px 16px 10px 45% !important; 
-    text-align: left !important;
-    white-space: normal !important;
-    min-height: 40px !important;
-    box-sizing: border-box !important;
-  }
-  
-  .responsive-table td:last-child {
-    border-bottom: none !important;
-    padding-top: 14px !important;
-  }
-  
-  .responsive-table td::before { 
-    content: attr(data-label);
-    position: absolute !important;
-    left: 16px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    width: 38% !important; 
-    padding-right: 8px !important; 
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    font-weight: 700 !important;
-    color: #f59e0b !important;
-    font-size: 11px !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-  }
-  
-  .responsive-table td[data-label="Actions"]::before,
-  .responsive-table td[data-label="Payload"]::before {
-    position: static !important;
-    display: block !important;
-    transform: none !important;
-    width: 100% !important;
-    margin-bottom: 8px !important;
-  }
-
-  .responsive-table td[data-label="Actions"],
-  .responsive-table td[data-label="Payload"] {
-    padding-left: 16px !important;
-    text-align: left !important;
-  }
-
-  .responsive-table td div {
-    justify-content: flex-start !important;
-    flex-wrap: wrap !important;
-  }
+/* Responsive scrollable table layout */
+.responsive-table {
+  width: 100%;
+  min-width: 950px;
 }
