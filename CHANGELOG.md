@@ -5,6 +5,15 @@ All notable changes to the StockPulse Mini ERP + CRM Portal will be documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-08-23
+
+### Added
+- **Bulk Product Ingestion Engine**: Interactive Excel (`.xlsx`) and CSV file upload modal (`BulkImportModal.tsx`) with downloadable standardized templates, pre-flight grid preview, client-side validation, duplicate SKU detection, and configurable strategies (`SKIP`, `OVERWRITE`, `FAIL`).
+- **Notification History & Role Audit Feed (`/notifications`)**: Dedicated audit log route powered by backend `getUserNotifications` service supporting pagination, search, severity levels (`CRITICAL`, `WARNING`, `INFO`, `SUCCESS`), category filtering (`STOCK_LOW`, `CHALLAN_PENDING`, `REORDER_RECOMMENDED`, `ASSEMBLY_READY`, `CREDIT_RISK_ALERT`), date range presets (`Today`, `Yesterday`, `Past 7 Days`, `Past 30 Days`), and recency sorting.
+- **Smart Business Operational Analysis Engine**: Interactive Notification Details Modal featuring high-contrast typography, context-aware business event overviews, inventory impact statements, role-specific action recommendations, and direct resource links.
+- **Module-Wide Date Range & Recency Toolbar**: Extended date range presets (`Today`, `Past 7 Days`, `Past 30 Days`), recency ordering (`Newest First`, `Oldest First`), and category/status filtering across Product Catalog (`/products`), Customer CRM (`/customers`), and Delivery Challans (`/challans`).
+- **Role-Tailored DOST AI Business Companion Widget**: Enhanced AI chatbot with live workspace telemetry inspection (`dashboardService.getStats()`), role-scoped greetings (`ORG_ADMIN`, `WAREHOUSE`, `SALES`, `ACCOUNTS`, `SUPER_ADMIN`), security gate permission enforcement (`buildRestrictedRoleResponse`), and real interactive confirmation cards for backend actions (`MOVE_STOCK`, `CREATE_CHALLAN`, `CREATE_CUSTOMER`, `BUILD_BOM_ASSEMBLY`, `UPDATE_ORG_STATUS`).
+
 ---
 
 ## [2.0.0] - 2026-08-16

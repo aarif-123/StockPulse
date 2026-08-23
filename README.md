@@ -1,4 +1,4 @@
-﻿# ⚡ StockPulse — Enterprise Multi-Tenant B2B Operations Platform
+# ⚡ StockPulse — Enterprise Multi-Tenant B2B Operations Platform
 
 <div align="center">
 
@@ -147,7 +147,7 @@ flowchart LR
 - **BOM Production Assemblies** — multi-component Bill of Materials recipes; one-click assembly decrements components and increments finished-good stock atomically
 - **Stock Adjustments with Audit Trail** — manual IN/OUT movements with reason codes and full actor/timestamp recording
 - **Cycle-Count Stock Takes** — digital physical count tool to identify variance and generate reconciliation adjustments
-- **Reorder Warning Engine** — surfaces SKUs below their safety threshold
+- **Reorder Warning Engine & Multi-Filter Toolbar** — filter catalog items, stock movements, and challans by date presets (`Today`, `Past 7 Days`, `Past 30 Days`), recency ordering (`Newest First`), and material categories
 
 ### 5. Customer CRM & Financial Ledger 360°
 - **Lead-to-Account Lifecycle** — leads progress to accounts; follow-up scheduling with timestamps
@@ -156,12 +156,20 @@ flowchart LR
 - **Credit Limit Monitoring** — real-time utilization prevents dispatch approval for over-limit accounts
 - **Customer Risk Scoring** — derived from ledger balance, outstanding challans, and payment history
 
-### 6. Reports & Analytics
-- **Executive Dashboard KPIs** — 14 live metrics in a single transactional batch query
-- **7-Day Stock Flow Bar Chart** — pure SVG rendering, zero third-party chart dependencies
-- **Challan Fulfillment Rate Donut Chart** — pure SVG, rendered client-side
-- **RFC 4180 CSV Export** — one-click downloads for Customer directories and Product catalogs
-- **Stock Movement Audit Report** — filterable by product, movement type, and date range with pagination
+### 6. Bulk Data Ingestion & Product Import Engine
+- **Excel (.xlsx) & CSV Import Modal** — automated client-side file parsing with standardized template download
+- **Validation & Duplicate Handling** — pre-flight grid preview with configurable duplicate SKU strategies (`SKIP`, `OVERWRITE`, `FAIL`)
+- **Role-Gated Batch Processing** — restricted to Warehouse and Organization Admin roles for data integrity
+
+### 7. Notification History & Role Event Audit Feed (`/notifications`)
+- **Server-Side Filtered Notifications** — paginated query engine supporting search, severity levels (`CRITICAL`, `WARNING`, `INFO`, `SUCCESS`), event types (`STOCK_LOW`, `CHALLAN_PENDING`, `REORDER_RECOMMENDED`, `ASSEMBLY_READY`, `CREDIT_RISK_ALERT`), date presets, and recency ordering
+- **Dual View Modes** — switch between interactive Timeline Feed View and compact Structured Audit Table View
+- **Smart Business Operational Analysis Engine** — high-contrast detail modal offering contextual event overviews, inventory impact statements, and role-specific action recommendations
+
+### 8. Role-Tailored DOST AI Business Companion Widget
+- **Role-Scoped Assistance** — dynamically adapts greetings, permission boundaries, and suggested prompts based on active role (`ORG_ADMIN`, `WAREHOUSE`, `SALES`, `ACCOUNTS`, `SUPER_ADMIN`)
+- **Live Telemetry Inspection** — fetches real-time workspace statistics (`dashboardService.getStats()`) to highlight low stock alerts and pending draft dispatches upon opening
+- **Real Action Execution (No Mocks)** — interactive confirmation cards for real live backend actions (`MOVE_STOCK`, `CREATE_CHALLAN`, `CREATE_CUSTOMER`, `BUILD_BOM_ASSEMBLY`, `UPDATE_ORG_STATUS`)
 
 ---
 
@@ -598,6 +606,14 @@ All endpoints require `Authorization: Bearer <jwt>` except `POST /api/auth/login
 |:---|:---|:---|
 | `GET` | `/api/dashboard/stats` | 14 live business KPIs in a single query batch |
 
+### Notifications & Audit Log (`/api/notifications`)
+
+| Method | Endpoint | Description |
+|:---|:---|:---|
+| `GET` | `/api/notifications` | List user/role notifications with pagination, search, severity, type, date range & sortOrder |
+| `PATCH` | `/api/notifications/:id/read` | Mark individual notification alert as read |
+| `POST` | `/api/notifications/read-all` | Mark all unread notification alerts for active org context as read |
+
 ---
 
 ## 🔒 Security Design
@@ -685,7 +701,13 @@ erDiagram
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/) conventions.
 
-**Latest — v2.0.0 (2026-08-16)**
+**Latest — v2.1.0 (2026-08-23)**
+- **Bulk Product Import (Excel / CSV)**: Interactive modal parsing `.xlsx` and `.csv` files with validation and configurable duplicate SKU strategies (`SKIP`, `OVERWRITE`, `FAIL`)
+- **Notification History & Audit Feed (`/notifications`)**: Backend query engine with server-side pagination, search, severity & category filtering, date presets (`Today`, `Past 7 Days`, `Past 30 Days`), recency sorting, and interactive details modal with Smart Business Analysis Engine
+- **Module-Wide Date Range & Recency Filtering**: Added date range presets, recency sorting, and category filters across Product Catalog (`/products`), Customer CRM (`/customers`), and Delivery Challans (`/challans`)
+- **Role-Tailored DOST AI Assistant**: Enhanced DOST AI chatbot with live workspace telemetry inspection, role-scoped greetings (`ORG_ADMIN`, `WAREHOUSE`, `SALES`, `ACCOUNTS`, `SUPER_ADMIN`), security gate enforcement, and real interactive confirmation cards for backend actions (`MOVE_STOCK`, `CREATE_CHALLAN`, `CREATE_CUSTOMER`, `BUILD_BOM_ASSEMBLY`, `UPDATE_ORG_STATUS`)
+
+**v2.0.0 (2026-08-16)**
 - Realtime dashboard analytics API (14 live metrics)
 - Pure SVG chart engine (bar + donut) — zero dependencies
 - RFC 4180 CSV export for customers and products
