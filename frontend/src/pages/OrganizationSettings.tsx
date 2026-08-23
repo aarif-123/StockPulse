@@ -7,7 +7,7 @@ import type { OrganizationMember, OrganizationSettings as OrgSettingsType, Audit
 
 export const OrganizationSettings: React.FC = () => {
   const { activeOrg, hasRole, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'profile' | 'members' | 'audit'>('profile');
+  const [activeTab, setActiveTab] = useState<'myprofile' | 'profile' | 'members' | 'audit'>('myprofile');
   const [settings, setSettings] = useState<OrgSettingsType | null>(null);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
@@ -25,19 +25,28 @@ export const OrganizationSettings: React.FC = () => {
     password: '',
   });
 
+  const isOrgAdmin = (activeOrg?.role as string) === 'ORG_ADMIN' || (activeOrg?.role as string) === 'ADMIN' || user?.isSuperAdmin;
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [settRes, memRes, audRes] = await Promise.all([
+      const [settRes, memRes] = await Promise.all([
         api.get('/organizations/settings'),
         api.get('/organizations/members'),
-        api.get('/organizations/audit'),
       ]);
 
       setSettings(settRes.data.data);
       setMembers(memRes.data.data);
-      setAuditLogs(audRes.data.data);
+
+      if (isOrgAdmin) {
+        try {
+          const audRes = await api.get('/organizations/audit');
+          setAuditLogs(audRes.data.data || []);
+        } catch {
+          // ignore audit fetch error
+        }
+      }
     } catch (err) {
       setError(handleApiError(err));
     } finally {
@@ -114,11 +123,27 @@ export const OrganizationSettings: React.FC = () => {
     }
   };
 
+  const getRoleDescription = (role?: string) => {
+    switch (role) {
+      case 'ORG_ADMIN':
+      case 'ADMIN':
+        return 'Full business, team, inventory, financial, and administrative management privileges across the organization.';
+      case 'SALES':
+        return 'Manages customer profiles, creates & issues delivery challans, views product inventory, and receives restocking alerts.';
+      case 'WAREHOUSE':
+        return 'Performs stock adjustments, handles stock audits, manufactures BOM assemblies, and processes pick & pack dispatches.';
+      case 'ACCOUNTS':
+        return 'Monitors customer ledgers, payment tracking, invoice reconciliation, and delivery confirmation alerts.';
+      default:
+        return 'Standard organization workspace member with role-restricted operational access.';
+    }
+  };
+
   return (
     <div>
       <PageHeader
-        title="Organization Settings"
-        subtitle="Manage business legal profile, GST details, team members, and role capabilities."
+        title={isOrgAdmin ? 'Organization & Account Settings' : 'My Profile & Organization Details'}
+        subtitle="Manage user account details, role permissions, company business information, and team directory."
       />
 
       {/* Notifications */}
@@ -174,9 +199,10 @@ export const OrganizationSettings: React.FC = () => {
         }}
       >
         {[
-          { id: 'profile', label: 'Company Profile', icon: <span style={{ fontSize: '15px' }}>🏢</span> },
-          { id: 'members', label: `Team Members (${members.length})`, icon: <IconUsers size={16} /> },
-          { id: 'audit', label: 'Activity Audit Log', icon: <IconFileText size={16} /> },
+          { id: 'myprofile', label: 'My Profile & Role', icon: <span style={{ fontSize: '15px' }}>👤</span> },
+          { id: 'profile', label: 'Company Details', icon: <span style={{ fontSize: '15px' }}>🏢</span> },
+          { id: 'members', label: `Team Directory (${members.length})`, icon: <IconUsers size={16} /> },
+          ...(isOrgAdmin ? [{ id: 'audit', label: 'Activity Audit Log', icon: <IconFileText size={16} /> }] : []),
         ].map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -209,20 +235,116 @@ export const OrganizationSettings: React.FC = () => {
       {loading ? (
         <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
           <div className="spinner" style={{ margin: '0 auto 12px auto' }}></div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading organization settings...</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading account details...</p>
         </div>
       ) : (
         <>
+          {/* TAB 0: MY PROFILE & ROLE */}
+          {activeTab === 'myprofile' && user && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+              {/* User Identity Profile Card */}
+              <div className="card" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+                  <div
+                    style={{
+                      width: '56px',
+                      height: '56px',
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--primary-light)',
+                      color: 'var(--primary-hover)',
+                      border: '2px solid var(--primary-border)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '22px',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--text-primary)' }}>{user.name}</h3>
+                    <p style={{ margin: '2px 0 0 0', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: 'var(--font-mono)' }}>
+                      {user.email}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                      Assigned Role
+                    </span>
+                    <div style={{ marginTop: '4px' }}>
+                      <span className={`badge ${getRoleBadgeClass(activeOrg?.role || user.role || 'SALES')}`} style={{ padding: '4px 10px', fontSize: '12px', fontWeight: 700 }}>
+                        <IconShield size={13} style={{ marginRight: '4px' }} />
+                        {activeOrg?.role || user.role || 'SALES'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                      Role Responsibilities & Access
+                    </span>
+                    <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.5' }}>
+                      {getRoleDescription(activeOrg?.role || user.role)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Active Organization Info Summary */}
+              <div className="card" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <h4 style={{ margin: 0, fontSize: '15px', color: 'var(--text-primary)' }}>🏢 Current Organization</h4>
+                  {activeOrg?.subscription && (
+                    <span className="badge" style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary-hover)', border: '1px solid var(--primary-border)', padding: '3px 8px', fontSize: '11px', fontWeight: 600 }}>
+                      👑 {activeOrg.subscription.planName}
+                    </span>
+                  )}
+                </div>
+
+                {settings ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
+                    <div>
+                      <span style={{ color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Legal Entity Name</span>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px' }}>{settings.name}</div>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Tenant Subdomain</span>
+                      <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', marginTop: '2px' }}>{settings.slug}</div>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>GSTIN Number</span>
+                      <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontWeight: 600, marginTop: '2px' }}>
+                        {settings.businessGstin || 'Not configured'}
+                      </div>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Location</span>
+                      <div style={{ color: 'var(--text-secondary)', marginTop: '2px' }}>
+                        {[settings.city, settings.state, settings.pincode].filter(Boolean).join(', ') || 'Address on file'}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ color: 'var(--text-tertiary)', fontSize: '13px' }}>Loading details...</div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* TAB 1: COMPANY PROFILE */}
           {activeTab === 'profile' && settings && (
             <div className="card" style={{ padding: '28px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
                 <div>
                   <h3 className="card-title" style={{ margin: 0, fontSize: '16px' }}>
-                    🏢 Legal Entity & GST Configuration
+                    🏢 Legal Entity & Business Profile
                   </h3>
                   <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                    These business details appear on your printed GST Delivery Challans and invoices.
+                    {isOrgAdmin ? 'These details appear on printed GST Delivery Challans and invoices.' : 'Official organization profile and business registration data.'}
                   </p>
                 </div>
                 {activeOrg?.subscription && (
@@ -242,6 +364,15 @@ export const OrganizationSettings: React.FC = () => {
                 )}
               </div>
 
+              {!isOrgAdmin && (
+                <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', marginBottom: '20px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    ℹ️ You are viewing company details in read-only mode for role <strong>{activeOrg?.role}</strong>.
+                  </span>
+                  <span className="badge badge-neutral" style={{ fontSize: '11px' }}>Read-Only</span>
+                </div>
+              )}
+
               <form onSubmit={handleUpdateProfile}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '24px' }}>
                   <div>
@@ -251,11 +382,16 @@ export const OrganizationSettings: React.FC = () => {
                     <input
                       type="text"
                       required
+                      disabled={!isOrgAdmin}
                       value={settings.name}
                       onChange={(e) => setSettings({ ...settings, name: e.target.value })}
                       className="search-input"
                       placeholder="e.g. Apex Logistics & Tech Solutions Pvt Ltd"
-                      style={{ fontSize: '14px', padding: '10px 14px' }}
+                      style={{
+                        fontSize: '14px',
+                        padding: '10px 14px',
+                        ...(!isOrgAdmin ? { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', cursor: 'not-allowed' } : {}),
+                      }}
                     />
                   </div>
 
@@ -287,11 +423,17 @@ export const OrganizationSettings: React.FC = () => {
                     </label>
                     <input
                       type="text"
+                      disabled={!isOrgAdmin}
                       value={settings.businessGstin || ''}
                       onChange={(e) => setSettings({ ...settings, businessGstin: e.target.value.toUpperCase() })}
                       className="search-input"
                       placeholder="e.g. 27AAPCA1234F1Z5"
-                      style={{ fontSize: '14px', padding: '10px 14px', fontFamily: 'var(--font-mono)' }}
+                      style={{
+                        fontSize: '14px',
+                        padding: '10px 14px',
+                        fontFamily: 'var(--font-mono)',
+                        ...(!isOrgAdmin ? { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', cursor: 'not-allowed' } : {}),
+                      }}
                     />
                   </div>
 
@@ -301,11 +443,16 @@ export const OrganizationSettings: React.FC = () => {
                     </label>
                     <input
                       type="text"
+                      disabled={!isOrgAdmin}
                       value={settings.businessPhone || ''}
                       onChange={(e) => setSettings({ ...settings, businessPhone: e.target.value })}
                       className="search-input"
                       placeholder="e.g. +91 98765 43210"
-                      style={{ fontSize: '14px', padding: '10px 14px' }}
+                      style={{
+                        fontSize: '14px',
+                        padding: '10px 14px',
+                        ...(!isOrgAdmin ? { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', cursor: 'not-allowed' } : {}),
+                      }}
                     />
                   </div>
 
@@ -315,11 +462,17 @@ export const OrganizationSettings: React.FC = () => {
                     </label>
                     <textarea
                       rows={2}
+                      disabled={!isOrgAdmin}
                       value={settings.businessAddress || ''}
                       onChange={(e) => setSettings({ ...settings, businessAddress: e.target.value })}
                       className="search-input"
                       placeholder="Plot No., Building / Industrial Area, Landmark"
-                      style={{ fontSize: '14px', padding: '10px 14px', resize: 'vertical' }}
+                      style={{
+                        fontSize: '14px',
+                        padding: '10px 14px',
+                        resize: 'vertical',
+                        ...(!isOrgAdmin ? { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', cursor: 'not-allowed' } : {}),
+                      }}
                     />
                   </div>
 
@@ -329,11 +482,16 @@ export const OrganizationSettings: React.FC = () => {
                     </label>
                     <input
                       type="text"
+                      disabled={!isOrgAdmin}
                       value={settings.city || ''}
                       onChange={(e) => setSettings({ ...settings, city: e.target.value })}
                       className="search-input"
                       placeholder="e.g. Mumbai"
-                      style={{ fontSize: '14px', padding: '10px 14px' }}
+                      style={{
+                        fontSize: '14px',
+                        padding: '10px 14px',
+                        ...(!isOrgAdmin ? { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', cursor: 'not-allowed' } : {}),
+                      }}
                     />
                   </div>
 
@@ -343,11 +501,16 @@ export const OrganizationSettings: React.FC = () => {
                     </label>
                     <input
                       type="text"
+                      disabled={!isOrgAdmin}
                       value={settings.state || ''}
                       onChange={(e) => setSettings({ ...settings, state: e.target.value })}
                       className="search-input"
                       placeholder="e.g. Maharashtra"
-                      style={{ fontSize: '14px', padding: '10px 14px' }}
+                      style={{
+                        fontSize: '14px',
+                        padding: '10px 14px',
+                        ...(!isOrgAdmin ? { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', cursor: 'not-allowed' } : {}),
+                      }}
                     />
                   </div>
 
@@ -357,25 +520,32 @@ export const OrganizationSettings: React.FC = () => {
                     </label>
                     <input
                       type="text"
+                      disabled={!isOrgAdmin}
                       value={settings.pincode || ''}
                       onChange={(e) => setSettings({ ...settings, pincode: e.target.value })}
                       className="search-input"
                       placeholder="e.g. 400093"
-                      style={{ fontSize: '14px', padding: '10px 14px' }}
+                      style={{
+                        fontSize: '14px',
+                        padding: '10px 14px',
+                        ...(!isOrgAdmin ? { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', cursor: 'not-allowed' } : {}),
+                      }}
                     />
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="btn btn-primary"
-                    style={{ padding: '10px 24px', fontSize: '14px' }}
-                  >
-                    {saving ? 'Saving Changes...' : 'Save Profile Changes'}
-                  </button>
-                </div>
+                {isOrgAdmin && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="btn btn-primary"
+                      style={{ padding: '10px 24px', fontSize: '14px' }}
+                    >
+                      {saving ? 'Saving Changes...' : 'Save Profile Changes'}
+                    </button>
+                  </div>
+                )}
               </form>
             </div>
           )}

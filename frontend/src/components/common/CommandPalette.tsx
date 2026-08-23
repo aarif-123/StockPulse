@@ -122,6 +122,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
                 <span>⚠️ Stock Alert Warnings</span>
                 <span className="command-palette-hint">Inventory</span>
               </div>
+              <div className="command-palette-item" onClick={() => handleSelect('/notifications')}>
+                <span>🔔 Role Alerts & Notification History</span>
+                <span className="command-palette-hint">Audit Log</span>
+              </div>
               <div className="command-palette-item" onClick={() => handleSelect('/reports')}>
                 <span>📈 Stock Movement Audit Reports</span>
                 <span className="command-palette-hint">Audit</span>

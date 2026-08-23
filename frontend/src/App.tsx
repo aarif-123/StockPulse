@@ -24,7 +24,9 @@ import { AdvancedInventoryManager } from './pages/AdvancedInventoryManager';
 import { StockTake } from './pages/StockTake';
 import { ProductionAssemblies } from './pages/ProductionAssemblies';
 import { OrganizationSettings } from './pages/OrganizationSettings';
+import { ProfileSettings } from './pages/ProfileSettings';
 import { BillingSubscriptions } from './pages/BillingSubscriptions';
+import { NotificationHistory } from './pages/NotificationHistory';
 
 // Platform Super Admin Suite Pages
 import PlatformDashboard from './pages/platform/PlatformDashboard';
@@ -91,6 +93,10 @@ const App: React.FC = () => {
             }
           >
             <Route path="dashboard" element={<Dashboard />} />
+
+            {/* Personal User Profile & Notification History */}
+            <Route path="profile" element={<ProfileSettings />} />
+            <Route path="notifications" element={<NotificationHistory />} />
 
             {/* Tenant Organization Administration & Billing */}
             <Route

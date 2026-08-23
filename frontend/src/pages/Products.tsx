@@ -15,13 +15,15 @@ import { PageHeader } from '../components/common/PageHeader';
 import { IconPlus, IconDownload, IconPackage, IconAlertTriangle, IconIndianRupee } from '../components/common/Icons';
 import { exportToCsv } from '../utils/csvExport';
 
+import { AddProductChoiceModal } from '../components/products/AddProductChoiceModal';
+import { BulkImportModal } from '../components/products/BulkImportModal';
+
 const EMPTY_FORM: ProductFormData = {
   name: '', sku: '', category: '', unitPrice: '',
   currentStock: '0', minimumStock: '10', warehouseLocation: '',
 };
 
-
-const CATEGORIES = [
+const DEFAULT_CATEGORIES = [
   'Computer Accessories', 'Office Equipment', 'Networking',
   'Software Licenses', 'Storage Devices',
 ];
@@ -47,13 +49,24 @@ export const Products: React.FC = () => {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [lowStock, setLowStock] = useState(urlLowStock);
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'stock_desc' | 'stock_asc' | 'price_desc'>('newest');
+  const [datePreset, setDatePreset] = useState<'ALL_TIME' | 'TODAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS'>('ALL_TIME');
 
+  const [isChoiceModalOpen, setIsChoiceModalOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit' | null>(null);
   const [selectedProd, setSelectedProd] = useState<Product | null>(null);
   const [inwardProd, setInwardProd] = useState<Product | null>(null);
   const [formData, setFormData] = useState<ProductFormData>(EMPTY_FORM);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Dynamically merge categories from products table + defaults
+  const categoriesList = useMemo(() => {
+    const set = new Set([...DEFAULT_CATEGORIES, ...products.map((p) => p.category).filter(Boolean)]);
+    return Array.from(set);
+  }, [products]);
+
 
   const [pageSize, setPageSize] = useState<number>(() => {
     const saved = localStorage.getItem('stockpulse_product_page_size');
@@ -104,6 +117,36 @@ export const Products: React.FC = () => {
     const totalValuation = products.reduce((acc, p) => acc + (p.currentStock * Number(p.unitPrice)), 0);
     return { totalCount, lowCount, zeroCount, totalValuation };
   }, [products, totalItems]);
+
+  const filteredProducts = useMemo(() => {
+    let list = [...products];
+
+    if (datePreset !== 'ALL_TIME') {
+      const now = new Date();
+      const cutoff = new Date();
+      if (datePreset === 'TODAY') cutoff.setHours(0, 0, 0, 0);
+      else if (datePreset === 'LAST_7_DAYS') cutoff.setDate(now.getDate() - 7);
+      else if (datePreset === 'LAST_30_DAYS') cutoff.setDate(now.getDate() - 30);
+
+      list = list.filter((p) => {
+        const itemDate = new Date(p.createdAt || p.updatedAt || Date.now());
+        return itemDate >= cutoff;
+      });
+    }
+
+    list.sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime();
+      const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime();
+      if (sortOrder === 'newest') return timeB - timeA;
+      if (sortOrder === 'oldest') return timeA - timeB;
+      if (sortOrder === 'stock_desc') return b.currentStock - a.currentStock;
+      if (sortOrder === 'stock_asc') return a.currentStock - b.currentStock;
+      if (sortOrder === 'price_desc') return Number(b.unitPrice) - Number(a.unitPrice);
+      return 0;
+    });
+
+    return list;
+  }, [products, datePreset, sortOrder]);
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -330,7 +373,7 @@ export const Products: React.FC = () => {
               </button>
             )}
             {canEdit && (
-              <button className="btn btn-primary btn-sm" onClick={openAdd} id="add-product-btn">
+              <button className="btn btn-primary btn-sm" onClick={() => setIsChoiceModalOpen(true)} id="add-product-btn">
                 <IconPlus size={14} /> Add Product
               </button>
             )}
@@ -423,51 +466,60 @@ export const Products: React.FC = () => {
           </button>
         </div>
 
-        <div className="flex-center gap-8">
+        <div className="flex-center gap-8 flex-wrap">
+          {/* Date Filter */}
+          <select
+            className="filter-select"
+            value={datePreset}
+            onChange={(e) => setDatePreset(e.target.value as any)}
+            aria-label="Filter by Date Created"
+            style={{ fontSize: '12px', padding: '4px 8px' }}
+          >
+            <option value="ALL_TIME">📅 All Time</option>
+            <option value="TODAY">📅 Added Today</option>
+            <option value="LAST_7_DAYS">📅 Past 7 Days</option>
+            <option value="LAST_30_DAYS">📅 Past 30 Days</option>
+          </select>
+
+          {/* Category Filter */}
           <select
             className="filter-select"
             value={category}
             onChange={(e) => { setCategory(e.target.value); setPage(1); }}
             aria-label="Filter by Category"
+            style={{ fontSize: '12px', padding: '4px 8px' }}
           >
-            <option value="">All Categories</option>
-            {CATEGORIES.map((c) => (
+            <option value="">📂 All Categories</option>
+            {categoriesList.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
+          </select>
+
+          {/* Recency & Stock Sorting */}
+          <select
+            className="filter-select"
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value as any)}
+            aria-label="Sort Order"
+            style={{ fontSize: '12px', padding: '4px 8px' }}
+          >
+            <option value="newest">⬇️ Newest Added (Recency)</option>
+            <option value="oldest">⬆️ Oldest First</option>
+            <option value="stock_desc">📦 Stock: High to Low</option>
+            <option value="stock_asc">📦 Stock: Low to High</option>
+            {!isWarehouse && <option value="price_desc">💰 Price: High to Low</option>}
           </select>
         </div>
       </div>
 
       <div className="toolbar-card">
         <SearchBar onSearch={handleSearch} placeholder="Search by SKU, product name, or location…" id="product-search" />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Show:</span>
-          <select
-            className="filter-select"
-            value={pageSize}
-            onChange={(e) => {
-              const newSize = Number(e.target.value);
-              setPageSize(newSize);
-              setPage(1);
-              localStorage.setItem('stockpulse_product_page_size', String(newSize));
-            }}
-            aria-label="Items per page limit"
-            style={{ width: 'auto', minWidth: '95px' }}
-          >
-            <option value="10">10 / page</option>
-            <option value="25">25 / page</option>
-            <option value="30">30 / page</option>
-            <option value="50">50 / page</option>
-            <option value="100">100 / page</option>
-          </select>
-        </div>
       </div>
 
       {error && <div className="alert alert-danger mb-16">{error}</div>}
 
       <div className="table-card">
-        <Table columns={columns} data={products} keyExtractor={(p) => p.id} isLoading={loading}
+        <Table columns={columns} data={filteredProducts} keyExtractor={(p) => p.id} isLoading={loading}
           emptyMessage="No products found matching your query." />
         {!loading && products.length > 0 && (
           <div className="pagination-footer">
@@ -492,6 +544,25 @@ export const Products: React.FC = () => {
         )}
       </div>
 
+      {/* Choice Modal (Single vs Bulk) */}
+      <AddProductChoiceModal
+        isOpen={isChoiceModalOpen}
+        onClose={() => setIsChoiceModalOpen(false)}
+        onSelectManual={openAdd}
+        onSelectBulk={() => setIsBulkModalOpen(true)}
+      />
+
+      {/* Bulk CSV / Excel Import Modal */}
+      <BulkImportModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        onSuccess={(count) => {
+          toast.success(`Successfully imported ${count} products into catalog.`);
+          void fetchProducts();
+        }}
+        isWarehouseRole={isWarehouse}
+      />
+
       {modalMode && (
         <ProductModal mode={modalMode} formData={formData} onChange={handleFormChange}
           onSubmit={modalMode === 'add' ? handleAddSubmit : handleEditSubmit}
@@ -502,3 +573,4 @@ export const Products: React.FC = () => {
 };
 
 export default Products;
+

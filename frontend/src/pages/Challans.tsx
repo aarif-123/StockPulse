@@ -45,6 +45,7 @@ export const Challans: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'ALL' | ChallanStatus>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [datePreset, setDatePreset] = useState<'ALL_TIME' | 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS'>('ALL_TIME');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
   // Pagination & User-Configurable Limits
@@ -130,9 +131,24 @@ export const Challans: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [page, statusFilter]);
 
-  // Client-side sorting for the current fetched page
+  // Client-side sorting and date filtering for the fetched page
   const sortedChallans = useMemo(() => {
-    return [...challans].sort((a, b) => {
+    let list = [...challans];
+
+    if (datePreset !== 'ALL_TIME') {
+      const now = new Date();
+      const cutoff = new Date();
+      if (datePreset === 'TODAY') cutoff.setHours(0, 0, 0, 0);
+      else if (datePreset === 'YESTERDAY') {
+        cutoff.setDate(cutoff.getDate() - 1);
+        cutoff.setHours(0, 0, 0, 0);
+      } else if (datePreset === 'LAST_7_DAYS') cutoff.setDate(now.getDate() - 7);
+      else if (datePreset === 'LAST_30_DAYS') cutoff.setDate(now.getDate() - 30);
+
+      list = list.filter((c) => new Date(c.createdAt) >= cutoff);
+    }
+
+    return list.sort((a, b) => {
       if (sortBy === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       if (sortBy === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       if (sortBy === 'qty_desc') return b.totalQuantity - a.totalQuantity;
@@ -140,7 +156,7 @@ export const Challans: React.FC = () => {
       if (sortBy === 'number_asc') return a.challanNumber.localeCompare(b.challanNumber);
       return 0;
     });
-  }, [challans, sortBy]);
+  }, [challans, sortBy, datePreset]);
 
   const handleStatusFilter = (status: 'ALL' | ChallanStatus) => {
     setStatusFilter(status);
@@ -500,7 +516,7 @@ export const Challans: React.FC = () => {
         </button>
       </div>
 
-      {/* Toolbar: Search + Sort + Limit Selector + View Mode Switcher */}
+      {/* Toolbar: Search + Sort + View Mode Switcher */}
       <div className="toolbar-card">
         <SearchBar
           onSearch={handleSearch}
@@ -509,6 +525,21 @@ export const Challans: React.FC = () => {
         />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Date Filter */}
+          <select
+            className="filter-select"
+            value={datePreset}
+            onChange={(e) => setDatePreset(e.target.value as any)}
+            aria-label="Filter by Date"
+            style={{ width: 'auto' }}
+          >
+            <option value="ALL_TIME">📅 All Time</option>
+            <option value="TODAY">📅 Today</option>
+            <option value="YESTERDAY">📅 Yesterday</option>
+            <option value="LAST_7_DAYS">📅 Past 7 Days</option>
+            <option value="LAST_30_DAYS">📅 Past 30 Days</option>
+          </select>
+
           {/* User-Configurable Page Size Limit Selector */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Show:</span>

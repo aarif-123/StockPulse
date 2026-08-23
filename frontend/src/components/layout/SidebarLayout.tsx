@@ -4,11 +4,12 @@ import { useAuth } from '../../hooks/useAuth';
 import { CommandPalette } from '../common/CommandPalette';
 import { SupportSessionBanner } from './SupportSessionBanner';
 import { AiAssistantChatbot } from '../chat/AiAssistantChatbot';
+import { NotificationBell } from './NotificationBell';
 import {
   IconDashboard, IconUsers, IconPackage, IconFileText,
   IconBarChart, IconSearch, IconLogOut,
   IconMenu, IconShoppingCart, IconSliders, IconClipboardCheck,
-  IconLayers, IconIndianRupee,
+  IconLayers, IconIndianRupee, IconBell,
 } from '../common/Icons';
 
 export const SidebarLayout: React.FC = () => {
@@ -192,10 +193,25 @@ export const SidebarLayout: React.FC = () => {
             </li>
           )}
 
-          {/* Organization Administration */}
+          {/* Profile & Account Settings */}
+          <div className="sidebar-section-label">{isOrgAdmin ? 'Organization' : 'Account'}</div>
+          
+          <li className="sidebar-item" onClick={closeMobileSidebar}>
+            <NavLink to="/profile" className={({ isActive }) => (isActive ? 'active' : '')}>
+              <span className="nav-icon" style={{ fontSize: '15px' }}>👤</span>
+              Profile Settings
+            </NavLink>
+          </li>
+
+          <li className="sidebar-item" onClick={closeMobileSidebar}>
+            <NavLink to="/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
+              <IconBell size={18} className="nav-icon" />
+              Alerts & History
+            </NavLink>
+          </li>
+
           {isOrgAdmin && (
             <>
-              <div className="sidebar-section-label">Organization</div>
               <li className="sidebar-item" onClick={closeMobileSidebar}>
                 <NavLink to="/org/settings" className={({ isActive }) => (isActive ? 'active' : '')}>
                   <span className="nav-icon" style={{ fontSize: '15px' }}>⚙️</span>
@@ -255,6 +271,7 @@ export const SidebarLayout: React.FC = () => {
           </div>
 
           <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <NotificationBell />
           </div>
         </header>
 

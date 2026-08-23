@@ -8,7 +8,9 @@ const router = Router();
 router.post('/login', authController.login);
 router.post('/register', authController.register);
 
-// Protected identity profile endpoint
+// Protected identity profile endpoints
 router.get('/me', authenticate, authController.getMe);
+router.put('/profile', authenticate, authController.updateProfile);
+router.put('/password', authenticate, authController.updatePassword);
 
 export default router;

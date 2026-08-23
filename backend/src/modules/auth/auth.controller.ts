@@ -44,4 +44,28 @@ export const authController = {
       next(err);
     }
   },
+
+  async updateProfile(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { name, phone, avatarUrl } = req.body;
+      const data = await authService.updateProfile(req.user!.userId, { name, phone, avatarUrl });
+      res.status(200).json({ data });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updatePassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) {
+        res.status(400).json({ error: 'Current password and new password are required' });
+        return;
+      }
+      const data = await authService.updatePassword(req.user!.userId, { currentPassword, newPassword });
+      res.status(200).json(data);
+    } catch (err) {
+      next(err);
+    }
+  },
 };

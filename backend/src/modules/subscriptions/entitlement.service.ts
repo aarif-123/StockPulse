@@ -125,7 +125,8 @@ export const entitlementService = {
   async assertQuotaAvailable(
     tx: Prisma.TransactionClient,
     organizationId: string,
-    resource: 'products' | 'customers' | 'transactions' | 'users'
+    resource: 'products' | 'customers' | 'transactions' | 'users',
+    additionalCount: number = 1
   ): Promise<void> {
     const subscription = await tx.subscription.findFirst({
       where: {
@@ -167,8 +168,9 @@ export const entitlementService = {
         break;
     }
 
-    if (current >= limit) {
+    if (current + additionalCount > limit) {
       throw AppError.quotaExceeded(resource, limit, current);
     }
   },
 };
+

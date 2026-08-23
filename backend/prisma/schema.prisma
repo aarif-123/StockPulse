@@ -141,6 +141,23 @@ enum SupportSessionStatus {
   EXPIRED
 }
 
+enum NotificationType {
+  STOCK_LOW
+  CHALLAN_PENDING
+  PAYMENT_OVERDUE
+  REORDER_RECOMMENDED
+  ASSEMBLY_READY
+  CREDIT_RISK_ALERT
+  SYSTEM_NOTICE
+}
+
+enum NotificationSeverity {
+  INFO
+  SUCCESS
+  WARNING
+  CRITICAL
+}
+
 // ── Identity & Access Control ──────────────────────────────────────────────────
 
 /// Global platform user. Can belong to multiple organizations via OrganizationMembership.
@@ -149,6 +166,8 @@ model User {
   name         String
   email        String      @unique
   passwordHash String
+  avatarUrl    String?
+  phone        String?
   isSuperAdmin Boolean     @default(false)
   status       UserStatus  @default(ACTIVE)
   lastLoginAt  DateTime?
@@ -172,6 +191,7 @@ model User {
   paymentRequestsReviewed PaymentRequest[] @relation("ReviewedPayments")
   paymentRequestsSubmitted PaymentRequest[] @relation("SubmittedPayments")
   bomBuildLogs         BomBuildLog[]
+  notifications        Notification[]
 
   @@index([email])
   @@index([status])
@@ -210,6 +230,7 @@ model Organization {
   supportSessions SupportSession[]
   bomAssemblies   BomAssembly[]
   bomBuildLogs    BomBuildLog[]
+  notifications   Notification[]
 
   @@index([slug])
   @@index([status])
@@ -698,4 +719,30 @@ model BomBuildLog {
   @@index([organizationId, createdAt])
   @@index([assemblyId])
   @@map("bom_build_logs")
+}
+
+/// Role-targeted and user-targeted notifications for operational events.
+model Notification {
+  id             String               @id @default(cuid())
+  organizationId String
+  userId         String?
+  targetRole     OrgRole?
+  type           NotificationType
+  severity       NotificationSeverity @default(INFO)
+  title          String
+  message        String
+  actionUrl      String?
+  payload        Json?
+  isRead         Boolean              @default(false)
+  readAt         DateTime?
+  createdAt      DateTime             @default(now())
+
+  // Relations
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, targetRole, isRead])
+  @@index([organizationId, userId, isRead])
+  @@index([organizationId, createdAt])
+  @@map("notifications")
 }

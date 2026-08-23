@@ -75,6 +75,39 @@ export const movementQuerySchema = z.object({
 
 export type MovementQueryInput = z.infer<typeof movementQuerySchema>;
 
+export const bulkImportItemSchema = createProductSchema.extend({
+  unitPrice: z.coerce
+    .number()
+    .min(0, 'Unit price must be greater than or equal to 0.')
+    .default(0),
+  currentStock: z.coerce
+    .number()
+    .int('Current stock must be an integer.')
+    .min(0, 'Current stock must be greater than or equal to 0.')
+    .default(0),
+  minimumStock: z.coerce
+    .number()
+    .int('Minimum stock must be an integer.')
+    .min(0, 'Minimum stock must be greater than or equal to 0.')
+    .default(10),
+  warehouseLocation: z
+    .string()
+    .min(1, 'Warehouse location cannot be empty.')
+    .default('Main Warehouse'),
+});
+
+export const DuplicateStrategySchema = z.enum(['MERGE_STOCK', 'SKIP_DUPLICATES', 'REPLACE_ALL', 'STRICT']);
+export type DuplicateStrategy = z.infer<typeof DuplicateStrategySchema>;
+
+export const bulkImportRequestSchema = z.object({
+  items: z.array(bulkImportItemSchema).min(1, 'At least 1 product item is required for import.'),
+  duplicateStrategy: DuplicateStrategySchema.default('MERGE_STOCK'),
+});
+
+export type BulkImportItemInput = z.infer<typeof bulkImportItemSchema>;
+export type BulkImportRequestInput = z.infer<typeof bulkImportRequestSchema>;
+
+
 export const ProductIdParamSchema = z.object({
   id: z.string().min(1, 'Product ID is required'),
 });
@@ -84,3 +117,5 @@ export const UpdateProductSchema = updateProductSchema;
 export const ProductQuerySchema = productQuerySchema;
 export const CreateStockMovementSchema = createStockMovementSchema;
 export const MovementQuerySchema = movementQuerySchema;
+export const BulkImportRequestSchema = bulkImportRequestSchema;
+

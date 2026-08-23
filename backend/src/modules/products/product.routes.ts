@@ -5,6 +5,7 @@ import { requirePermission } from '../../middleware/authorize';
 import { PERMISSIONS } from '../../config/permissions';
 import {
   createProduct,
+  bulkImportProducts,
   listProducts,
   getProductById,
   updateProduct,
@@ -18,7 +19,9 @@ router.use(authenticate);
 router.use(resolveTenantContext);
 
 router.post('/', requirePermission(PERMISSIONS.PRODUCTS_CREATE), createProduct);
+router.post('/bulk-import', requirePermission(PERMISSIONS.PRODUCTS_CREATE), bulkImportProducts);
 router.get('/', requirePermission(PERMISSIONS.PRODUCTS_READ), listProducts);
+
 router.get('/:id', requirePermission(PERMISSIONS.PRODUCTS_READ), getProductById);
 router.put('/:id', requirePermission(PERMISSIONS.PRODUCTS_UPDATE), updateProduct);
 router.patch('/:id', requirePermission(PERMISSIONS.PRODUCTS_UPDATE), updateProduct);

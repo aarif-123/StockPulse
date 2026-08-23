@@ -48,4 +48,24 @@ export const productService = {
     const response = await api.get<ApiResponse<StockMovement[]>>(`/products/${id}/stock-movements`, { params });
     return response.data;
   },
+
+  async bulkImportProducts(
+    items: Array<{
+      name: string;
+      sku: string;
+      category: string;
+      unitPrice: number;
+      currentStock: number;
+      minimumStock: number;
+      warehouseLocation: string;
+    }>,
+    duplicateStrategy: 'MERGE_STOCK' | 'SKIP_DUPLICATES' | 'REPLACE_ALL' | 'STRICT' = 'MERGE_STOCK'
+  ): Promise<{ importedCount: number; updatedCount?: number; products: Product[] }> {
+    const response = await api.post<{ importedCount: number; updatedCount?: number; products: Product[] }>('/products/bulk-import', {
+      items,
+      duplicateStrategy,
+    });
+    return response.data;
+  },
 };
+

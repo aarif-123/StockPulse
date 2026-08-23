@@ -255,11 +255,53 @@ export const authService = {
         id: user.id,
         name: user.name,
         email: user.email,
+        phone: (user as any).phone || undefined,
+        avatarUrl: (user as any).avatarUrl || undefined,
         isSuperAdmin: user.isSuperAdmin,
         status: user.status,
         lastLoginAt: user.lastLoginAt,
       },
       organizations: memberships,
     };
+  },
+
+  async updateProfile(userId: string, input: { name?: string; phone?: string; avatarUrl?: string }) {
+    const data: any = {};
+    if (input.name) data.name = input.name;
+    if (input.phone !== undefined) data.phone = input.phone;
+    if (input.avatarUrl !== undefined) data.avatarUrl = input.avatarUrl;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isSuperAdmin: true,
+        status: true,
+      },
+    });
+
+
+    return updatedUser;
+  },
+
+  async updatePassword(userId: string, input: { currentPassword: string; newPassword: string }) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw AppError.notFound('User', userId);
+
+    const valid = await bcrypt.compare(input.currentPassword, user.passwordHash);
+    if (!valid) {
+      throw AppError.badRequest('Current password is incorrect.');
+    }
+
+    const newHash = await bcrypt.hash(input.newPassword, 10);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: newHash },
+    });
+
+    return { message: 'Password updated successfully.' };
   },
 };

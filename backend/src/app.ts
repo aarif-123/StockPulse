@@ -19,6 +19,7 @@ import dashboardRouter from './modules/dashboard/dashboard.routes';
 import reportsRouter from './modules/reports/reports.routes';
 import paymentsRouter from './modules/payments/payment.routes';
 import { bomRouter } from './modules/bom/bom.routes';
+import notificationsRouter from './modules/notifications/notification.routes';
 
 const app = express();
 
@@ -128,6 +129,10 @@ app.use('/reports', reportsRouter);
 app.use('/api/bom', bomRouter);
 app.use('/api/v1/bom', bomRouter);
 app.use('/bom', bomRouter);
+
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/v1/notifications', notificationsRouter);
+app.use('/notifications', notificationsRouter);
 
 // ── Error handling (must be last) ─────────────────────────────────────────────
 app.use(notFound);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { dashboardService } from '../../services/dashboard.service';
 import {
   processCopilotQuery,
   executeCopilotAction,
@@ -243,8 +244,34 @@ export const AiAssistantChatbot: React.FC = () => {
     }
   };
 
+  const [liveStats, setLiveStats] = useState<{ lowStockCount?: number; draftChallans?: number; totalProducts?: number } | null>(null);
+
+  useEffect(() => {
+    if (isOpen && !isSuperAdmin) {
+      dashboardService.getStats()
+        .then((res: any) => {
+          if (res) {
+            setLiveStats({
+              lowStockCount: res.inventory?.lowStockCount || 0,
+              draftChallans: res.challans?.totalDraft || 0,
+              totalProducts: res.inventory?.totalProducts || 0,
+            });
+          }
+        })
+        .catch(() => {
+          // ignore
+        });
+    }
+  }, [isOpen, isSuperAdmin]);
+
   const getWelcomeConfig = () => {
-    let welcomeText = `Hello ${user?.name || 'there'}! 👋 I am **DOST**, your intelligent StockPulse AI Business Companion.\n\nI can retrieve business data and **execute actions for you** (create challans, inward/outward stock, confirm dispatches, and manage CRM). I will always ask for your permission before modifying data. How can I help you today?`;
+    const role = activeOrg?.role || user?.role || 'SALES';
+    const orgName = activeOrg?.organizationName || 'StockPulse Workspace';
+    const lowStockAlert = liveStats?.lowStockCount ? `⚠️ **${liveStats.lowStockCount} Low Stock Item(s)**` : '';
+    const draftAlert = liveStats?.draftChallans ? `🚚 **${liveStats.draftChallans} Draft Challan(s) Pending**` : '';
+    const alertSummary = [lowStockAlert, draftAlert].filter(Boolean).join(' and ');
+
+    let welcomeText = `Hello ${user?.name || 'there'}! 👋 I am **DOST**, your AI Business Companion for **${orgName}**.\n\nActive Role: **[${role}]**\n${alertSummary ? `Live Alerts: ${alertSummary} require your attention.\n` : ''}\nI can retrieve live business data and **execute actions for you** (create challans, inward/outward stock, confirm dispatches, and manage CRM). I will always ask for your explicit approval before modifying data. What would you like to do?`;
     let welcomePrompts = [
       'Create a new challan',
       'Inward 50 stock for product',
@@ -261,9 +288,8 @@ export const AiAssistantChatbot: React.FC = () => {
         'Show pending payments',
       ];
     } else {
-      const role = activeOrg?.role || user?.role || 'SALES';
       if (role === 'SALES') {
-        welcomeText = `Hello ${user?.name || 'there'}! 👋 I am **DOST**, your Sales Assistant.\n\nI can help you search products, view customer CRM leads, create delivery challans, and check dispatches. How can I help you close deals today?`;
+        welcomeText = `Hello ${user?.name || 'there'}! 👋 I am **DOST**, your Sales AI Companion for **${orgName}**.\n\nActive Scope: **[SALES]**\n${alertSummary ? `Live Workspace Status: ${alertSummary}.\n` : ''}\nI can help you search products, view customer CRM leads, create delivery challans, and check dispatch statuses. How can I help you close deals today?`;
         welcomePrompts = [
           'Create a new challan',
           'Show customer leads',
@@ -271,7 +297,7 @@ export const AiAssistantChatbot: React.FC = () => {
           'Show recent delivery challans',
         ];
       } else if (role === 'WAREHOUSE') {
-        welcomeText = `Hello ${user?.name || 'there'}! 👋 I am **DOST**, your Warehouse Assistant.\n\nI can help you inward/outward stock, confirm dispatches, assemble BOM builds, and monitor low stock items. How can I assist with your shipments today?`;
+        welcomeText = `Hello ${user?.name || 'there'}! 👋 I am **DOST**, your Warehouse Operations Companion for **${orgName}**.\n\nActive Scope: **[WAREHOUSE]**\n${alertSummary ? `Live Warehouse Status: ${alertSummary}.\n` : ''}\nI can help you process inward/outward stock, confirm delivery challans, assemble BOM builds, and monitor low stock items. How can I assist with your shipments today?`;
         welcomePrompts = [
           'Inward 50 stock for product',
           'tell me the pending chalana',
@@ -279,11 +305,19 @@ export const AiAssistantChatbot: React.FC = () => {
           'Show Bill of Materials',
         ];
       } else if (role === 'ACCOUNTS') {
-        welcomeText = `Hello ${user?.name || 'there'}! 👋 I am **DOST**, your Accounts Companion.\n\nI can help you check inventory asset valuations, audit stock flow movement records, and run general dashboard KPIs. How can I help with the books today?`;
+        welcomeText = `Hello ${user?.name || 'there'}! 👋 I am **DOST**, your Financial & Inventory Accounts Companion for **${orgName}**.\n\nActive Scope: **[ACCOUNTS]**\nI can help you audit stock movement logs, check total inventory asset valuations, and inspect dashboard KPIs. How can I assist with accounting & auditing today?`;
         welcomePrompts = [
           'What is our total inventory valuation?',
           'Recent stock movements',
           'Show workspace stats & KPIs',
+        ];
+      } else if (role === 'ORG_ADMIN' || role === 'ADMIN') {
+        welcomeText = `Hello ${user?.name || 'there'}! 👋 I am **DOST**, your Organization Admin AI Companion for **${orgName}**.\n\nActive Scope: **[ORG_ADMIN]**\n${alertSummary ? `Live Organization Status: ${alertSummary}.\n` : ''}\nI have full authority to execute stock movements, issue challans, manage CRM clients, assemble BOM builds, and audit notification logs. What is your directive?`;
+        welcomePrompts = [
+          'Show workspace stats & KPIs',
+          'Create a new challan',
+          'Inward 50 stock for product',
+          'What is our total inventory valuation?',
         ];
       }
     }

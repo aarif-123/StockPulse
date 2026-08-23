@@ -7,6 +7,7 @@ import {
   ProductIdParamSchema,
   CreateStockMovementSchema,
   MovementQuerySchema,
+  BulkImportRequestSchema,
 } from './product.schema';
 
 export async function createProduct(req: Request, res: Response, next: NextFunction) {
@@ -19,6 +20,24 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
     next(err);
   }
 }
+
+export async function bulkImportProducts(req: Request, res: Response, next: NextFunction) {
+  try {
+    const orgId = req.tenant!.organizationId;
+    const isWarehouse = req.tenant?.role === 'WAREHOUSE';
+    const validated = BulkImportRequestSchema.parse(req.body);
+    const result = await productService.bulkImportProducts(
+      orgId,
+      validated.items,
+      isWarehouse,
+      validated.duplicateStrategy
+    );
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 
 export async function listProducts(req: Request, res: Response, next: NextFunction) {
   try {

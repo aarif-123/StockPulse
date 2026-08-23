@@ -2,6 +2,11 @@ import { Prisma, Challan } from '@prisma/client';
 import prisma from '../../config/database';
 import { AppError } from '../../middleware/error-handler';
 import type { CreateChallanInput, ListQueryInput } from './challan.schema';
+import {
+  triggerChallanCreatedNotification,
+  triggerChallanConfirmedNotification,
+  triggerStockLowNotification,
+} from '../notifications/notification.service';
 
 function notFound(id: string, resource = 'Challan'): AppError {
   return AppError.notFound(resource, id);
@@ -82,6 +87,10 @@ export async function createChallan(organizationId: string, createdBy: string, i
             customer: true,
           },
         });
+
+        // Trigger notification for WAREHOUSE role
+        const customerName = challan.customer?.businessName || challan.customer?.name || 'Customer';
+        triggerChallanCreatedNotification(organizationId, challan.challanNumber, customerName, challan.id).catch(() => {});
 
         return challan;
       }, { maxWait: 15000, timeout: 30000 });
@@ -210,7 +219,7 @@ export async function confirmChallan(organizationId: string, id: string, confirm
     }
 
     for (const item of challan.items) {
-      await tx.product.update({
+      const updatedProd = await tx.product.update({
         where: { id: item.productId },
         data: { currentStock: { decrement: item.quantity } },
       });
@@ -225,6 +234,17 @@ export async function confirmChallan(organizationId: string, id: string, confirm
           createdBy: confirmedBy,
         },
       });
+
+      // Check low stock threshold
+      if (updatedProd.currentStock <= updatedProd.reorderPoint) {
+        triggerStockLowNotification(
+          organizationId,
+          updatedProd.name,
+          updatedProd.currentStock,
+          updatedProd.reorderPoint,
+          updatedProd.id
+        ).catch(() => {});
+      }
     }
 
     const updatedChallan = await tx.challan.update({
@@ -235,6 +255,15 @@ export async function confirmChallan(organizationId: string, id: string, confirm
         customer: true,
       },
     });
+
+    const custName = updatedChallan.customer?.businessName || updatedChallan.customer?.name || 'Customer';
+    triggerChallanConfirmedNotification(
+      organizationId,
+      updatedChallan.challanNumber,
+      custName,
+      updatedChallan.totalQuantity,
+      updatedChallan.id
+    ).catch(() => {});
 
     return updatedChallan;
   }, { maxWait: 15000, timeout: 30000 });

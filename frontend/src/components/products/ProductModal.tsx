@@ -90,19 +90,25 @@ export function ProductModal({
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Category *</label>
-                <select
-                  className="filter-select"
-                  style={{ width: '100%' }}
-                  name="category"
-                  value={formData.category}
-                  onChange={onChange}
-                  required
-                >
-                  <option value="">Select Category</option>
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                <div className="flex-center gap-8">
+                  <input
+                    className="form-input"
+                    name="category"
+                    required
+                    value={formData.category}
+                    onChange={onChange}
+                    placeholder="e.g. Computer Accessories or Custom Category"
+                    list="category-suggestions"
+                  />
+                  <datalist id="category-suggestions">
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
+                </div>
+                <span className="fs-11 color-tertiary mt-2">
+                  Select from list or type any new custom category.
+                </span>
               </div>
               {!isWarehouse && (
                 <div className="form-group">

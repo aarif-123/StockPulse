@@ -35,6 +35,8 @@ export const Customers: React.FC = () => {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [customerType, setCustomerType] = useState('');
+  const [datePreset, setDatePreset] = useState<'ALL_TIME' | 'TODAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS'>('ALL_TIME');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'name_asc'>('newest');
 
   const [modalMode, setModalMode] = useState<'add' | 'edit' | null>(null);
   const [selectedCust, setSelectedCust] = useState<Customer | null>(null);
@@ -82,6 +84,34 @@ export const Customers: React.FC = () => {
     const withGst = customers.filter((c) => Boolean(c.gstNumber?.trim())).length;
     return { total, active, leads, withGst };
   }, [customers, totalItems]);
+
+  const filteredCustomers = useMemo(() => {
+    let list = [...customers];
+
+    if (datePreset !== 'ALL_TIME') {
+      const now = new Date();
+      const cutoff = new Date();
+      if (datePreset === 'TODAY') cutoff.setHours(0, 0, 0, 0);
+      else if (datePreset === 'LAST_7_DAYS') cutoff.setDate(now.getDate() - 7);
+      else if (datePreset === 'LAST_30_DAYS') cutoff.setDate(now.getDate() - 30);
+
+      list = list.filter((c) => {
+        const itemDate = new Date(c.createdAt || c.updatedAt || Date.now());
+        return itemDate >= cutoff;
+      });
+    }
+
+    list.sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime();
+      const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime();
+      if (sortOrder === 'newest') return timeB - timeA;
+      if (sortOrder === 'oldest') return timeA - timeB;
+      if (sortOrder === 'name_asc') return a.name.localeCompare(b.name);
+      return 0;
+    });
+
+    return list;
+  }, [customers, datePreset, sortOrder]);
 
   const handleFormChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
@@ -340,30 +370,15 @@ export const Customers: React.FC = () => {
         </div>
       </div>
 
-      <div className="toolbar-card">
+      <div className="toolbar-card" style={{ flexWrap: 'wrap', gap: '8px' }}>
         <SearchBar onSearch={handleSearch} placeholder="Search by name, company, email, phone…" id="customer-search" />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Show:</span>
-          <select
-            className="filter-select"
-            value={pageSize}
-            onChange={(e) => {
-              const newSize = Number(e.target.value);
-              setPageSize(newSize);
-              setPage(1);
-              localStorage.setItem('stockpulse_customer_page_size', String(newSize));
-            }}
-            aria-label="Items per page limit"
-            style={{ width: 'auto', minWidth: '95px' }}
-          >
-            <option value="10">10 / page</option>
-            <option value="25">25 / page</option>
-            <option value="30">30 / page</option>
-            <option value="50">50 / page</option>
-            <option value="100">100 / page</option>
-          </select>
-        </div>
+        <select className="filter-select" value={datePreset} onChange={(e) => setDatePreset(e.target.value as any)} aria-label="Filter by Date">
+          <option value="ALL_TIME">📅 All Time</option>
+          <option value="TODAY">📅 Registered Today</option>
+          <option value="LAST_7_DAYS">📅 Past 7 Days</option>
+          <option value="LAST_30_DAYS">📅 Past 30 Days</option>
+        </select>
 
         <select className="filter-select" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} aria-label="Filter by status">
           <option value="">All Statuses</option>
@@ -371,18 +386,25 @@ export const Customers: React.FC = () => {
           <option value="LEAD">Prospect Leads</option>
           <option value="INACTIVE">Inactive</option>
         </select>
+
         <select className="filter-select" value={customerType} onChange={(e) => { setCustomerType(e.target.value as CustomerType | ''); setPage(1); }} aria-label="Filter by type">
           <option value="">All Account Tiers</option>
           <option value="RETAIL">Retail</option>
           <option value="WHOLESALE">Wholesale</option>
           <option value="DISTRIBUTOR">Distributor</option>
         </select>
+
+        <select className="filter-select" value={sortOrder} onChange={(e) => setSortOrder(e.target.value as any)} aria-label="Sort Order">
+          <option value="newest">⬇️ Newest Added (Recency)</option>
+          <option value="oldest">⬆️ Oldest First</option>
+          <option value="name_asc">🔤 Name A-Z</option>
+        </select>
       </div>
 
       {error && <div className="alert alert-danger mb-16">{error}</div>}
 
       <div className="table-card">
-        <Table columns={columns} data={customers} keyExtractor={(c) => c.id} isLoading={loading}
+        <Table columns={columns} data={filteredCustomers} keyExtractor={(c) => c.id} isLoading={loading}
           emptyMessage="No customers found matching your filters." />
         {!loading && customers.length > 0 && (
           <div className="pagination-footer">
