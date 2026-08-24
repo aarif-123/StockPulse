@@ -23,6 +23,9 @@ import notificationsRouter from './modules/notifications/notification.routes';
 
 const app = express();
 
+// Trust reverse proxies (Render, Cloudflare) for rate limiting & client IP detection
+app.set('trust proxy', 1);
+
 // ── Security Headers (Helmet) ────────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: {
