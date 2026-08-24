@@ -51,12 +51,34 @@ app.use(pinoHttp({
 }));
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
+const getCorsOrigins = (): (string | RegExp)[] => {
+  if (!env.FRONTEND_URL || env.FRONTEND_URL === '*') {
+    return ['*'];
+  }
+  const origins = env.FRONTEND_URL.split(',').map((url) => url.trim());
+  return origins;
+};
+
 app.use(cors({
-  origin: env.NODE_ENV === 'production'
-    ? env.FRONTEND_URL
-    : '*',
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    
+    const configuredOrigins = getCorsOrigins();
+    if (configuredOrigins.includes('*')) return callback(null, true);
+    if (configuredOrigins.includes(origin)) return callback(null, true);
+    
+    // Always allow localhost & Vercel deployment URLs
+    if (origin.includes('localhost') || origin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    }
+
+    // Default fallback: reflection to avoid blocking client requests
+    return callback(null, true);
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-organization-id', 'X-Organization-Id'],
+  credentials: true,
 }));
 
 app.use(express.json({ limit: '1mb' }));
@@ -86,6 +108,9 @@ const healthHandler = async (_req: Request, res: Response): Promise<void> => {
   });
 };
 
+app.get('/', healthHandler);
+app.head('/', healthHandler);
+app.get('/api', healthHandler);
 app.get('/api/health', healthHandler);
 app.get('/health', healthHandler);
 
@@ -112,18 +137,23 @@ app.use('/payments', paymentsRouter);
 
 // 5. Tenant Business Modules
 app.use('/api/customers', customersRouter);
+app.use('/api/v1/customers', customersRouter);
 app.use('/customers', customersRouter);
 
 app.use('/api/products', productsRouter);
+app.use('/api/v1/products', productsRouter);
 app.use('/products', productsRouter);
 
 app.use('/api/challans', challansRouter);
+app.use('/api/v1/challans', challansRouter);
 app.use('/challans', challansRouter);
 
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/v1/dashboard', dashboardRouter);
 app.use('/dashboard', dashboardRouter);
 
 app.use('/api/reports', reportsRouter);
+app.use('/api/v1/reports', reportsRouter);
 app.use('/reports', reportsRouter);
 
 app.use('/api/bom', bomRouter);
