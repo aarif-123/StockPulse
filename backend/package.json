@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "start": "npx prisma db push && node dist/server.js",
+    "start": "node dist/server.js",
     "lint": "eslint src",
     "format": "prettier --write src",
     "test": "jest",
