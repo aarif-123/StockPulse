@@ -87,7 +87,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
         <div className="command-palette-body">
           {loading && (
             <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-              Searching StockPulse...
+              Searching VyaaparSync...
             </div>
           )}
 

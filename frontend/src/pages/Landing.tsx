@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../hooks/useTheme';
 import { useToast } from '../hooks/useToast';
 import { ToastContainer } from '../components/common/ToastContainer';
 import type { BillingCycleType, PlanTierType } from '../services/payment.service';
@@ -10,6 +11,7 @@ import {
   IconTruck, IconDashboard,
   IconClipboardCheck,
   IconLayers,
+  IconSun, IconMoon,
 } from '../components/common/Icons';
 
 export type FaqCategoryType = 'ALL' | 'LICENSE' | 'PRICING' | 'GST' | 'WAREHOUSE';
@@ -27,6 +29,7 @@ const IconZap: React.FC<{ size?: number; className?: string }> = ({ size = 20, c
 
 export const Landing: React.FC = () => {
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const { toasts, toast, removeToast } = useToast();
   // Pricing state
@@ -101,7 +104,7 @@ export const Landing: React.FC = () => {
     {
       cat: 'LICENSE',
       q: 'What happens when my plan quota is reached?',
-      a: 'StockPulse enforces plan quotas at write time. If your plan allows 500 SKUs and you try to create a 501st, the API returns a clear error and the operation is blocked. Data is never lost — existing records are always readable. Upgrading your plan instantly raises the quota limits.',
+      a: 'VyaaparSync enforces plan quotas at write time. If your plan allows 500 SKUs and you try to create a 501st, the API returns a clear error and the operation is blocked. Data is never lost — existing records are always readable. Upgrading your plan instantly raises the quota limits.',
     },
     {
       cat: 'LICENSE',
@@ -110,18 +113,18 @@ export const Landing: React.FC = () => {
     },
     {
       cat: 'GST',
-      q: 'How does StockPulse automatically resolve CGST, SGST, and IGST for Rule 55 Delivery Challans?',
-      a: 'StockPulse parses the 2-digit state code from both your organization GSTIN (e.g. 27 for Maharashtra) and the customer GSTIN (e.g. 07 for Delhi). If state codes match, it automatically applies intra-state CGST (9%) + SGST (9%). If they differ, it applies inter-state IGST (18%). The correct tax split is displayed on the challan line item and summarized in the tax footer.',
+      q: 'How does VyaaparSync automatically resolve CGST, SGST, and IGST for Rule 55 Delivery Challans?',
+      a: 'VyaaparSync parses the 2-digit state code from both your organization GSTIN (e.g. 27 for Maharashtra) and the customer GSTIN (e.g. 07 for Delhi). If state codes match, it automatically applies intra-state CGST (9%) + SGST (9%). If they differ, it applies inter-state IGST (18%). The correct tax split is displayed on the challan line item and summarized in the tax footer.',
     },
     {
       cat: 'WAREHOUSE',
       q: 'How do BOM Production Assemblies work?',
-      a: 'Define a Bill of Materials recipe specifying which component SKUs and quantities are consumed to produce one unit of a finished good. When you trigger an assembly run, StockPulse deducts each component from stock and increments the finished SKU — all within a single database transaction, so partial assembly failures are impossible.',
+      a: 'Define a Bill of Materials recipe specifying which component SKUs and quantities are consumed to produce one unit of a finished good. When you trigger an assembly run, VyaaparSync deducts each component from stock and increments the finished SKU — all within a single database transaction, so partial assembly failures are impossible.',
     },
     {
       cat: 'WAREHOUSE',
       q: 'How does the Cycle-Count Stock Take work?',
-      a: 'Navigate to the Stock Take page and enter physical counts for each SKU. StockPulse computes the variance between the physical count and the system quantity. On submission, it generates automatic stock adjustment entries (IN or OUT) to reconcile the system to reality, each stamped with the actor, timestamp, and reason code.',
+      a: 'Navigate to the Stock Take page and enter physical counts for each SKU. VyaaparSync computes the variance between the physical count and the system quantity. On submission, it generates automatic stock adjustment entries (IN or OUT) to reconcile the system to reality, each stamped with the actor, timestamp, and reason code.',
     },
     {
       cat: 'PRICING',
@@ -151,28 +154,12 @@ export const Landing: React.FC = () => {
       </a>
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
 
-      {/* ── Announcement Bar ─────────────────────────────────────────────── */}
-      <div className="landing-announcement" role="banner" aria-label="Platform feature highlights">
-        <div className="landing-announcement-scroll">
-          <IconShield size={13} aria-hidden="true" />
-          <span>GST Rule 55 Delivery Challans</span>
-          <span aria-hidden="true" style={{ opacity: 0.3 }}>·</span>
-          <span>BOM Production Assemblies</span>
-          <span aria-hidden="true" style={{ opacity: 0.3 }}>·</span>
-          <span>4-Role Capability RBAC</span>
-          <span aria-hidden="true" style={{ opacity: 0.3 }}>·</span>
-          <span>ACID Inventory Transactions</span>
-          <span aria-hidden="true" style={{ opacity: 0.3 }}>·</span>
-          <span>Customer Financial Ledger</span>
-        </div>
-      </div>
-
       {/* ── Sticky Top Navigation ───────────────────────────────────────── */}
       <nav className="landing-navbar" role="navigation" aria-label="Main navigation">
         <div className="landing-nav-container">
-          <Link to="/" className="landing-brand" aria-label="StockPulse home">
-            <div className="logo-mark" aria-hidden="true">S</div>
-            <span className="logo-text">StockPulse</span>
+          <Link to="/" className="landing-brand" aria-label="VyaaparSync home">
+            <div className="logo-mark" aria-hidden="true">V</div>
+            <span className="logo-text">VyaaparSync</span>
             <span className="landing-brand-badge">ENTERPRISE</span>
           </Link>
 
@@ -184,6 +171,16 @@ export const Landing: React.FC = () => {
           </ul>
 
           <div className="landing-nav-actions">
+            <button
+              type="button"
+              className="hamburger-btn theme-toggle-btn"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              style={{ width: '38px', height: '38px' }}
+            >
+              {theme === 'dark' ? <IconSun size={17} /> : <IconMoon size={17} />}
+            </button>
             {user ? (
               <Link to="/dashboard" className="btn btn-primary btn-sm">
                 Open Workspace →
@@ -227,14 +224,26 @@ export const Landing: React.FC = () => {
             <div className="landing-mobile-nav" role="menu">
               <div className="flex-between mb-8 pb-8" style={{ borderBottom: '1px solid var(--border-color)' }}>
                 <span className="fs-12 fw-700 color-primary">NAVIGATION</span>
-                <button
-                  type="button"
-                  className="btn-icon-xs color-secondary"
-                  onClick={() => setMobileNavOpen(false)}
-                  aria-label="Close Menu"
-                >
-                  ✕
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="hamburger-btn theme-toggle-btn"
+                    onClick={toggleTheme}
+                    aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                    title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                    style={{ width: '32px', height: '32px' }}
+                  >
+                    {theme === 'dark' ? <IconSun size={15} /> : <IconMoon size={15} />}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-icon-xs color-secondary"
+                    onClick={() => setMobileNavOpen(false)}
+                    aria-label="Close Menu"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
               <a href="#modules" className="landing-mobile-nav-link" onClick={() => setMobileNavOpen(false)}>Industry Verticals</a>
               <a href="#pricing" className="landing-mobile-nav-link" onClick={() => setMobileNavOpen(false)}>Plans & Pricing</a>
@@ -275,7 +284,7 @@ export const Landing: React.FC = () => {
           </h1>
 
           <p className="landing-hero-subtitle">
-            StockPulse unifies your customer CRM, multi-warehouse stock, statutory GST Rule 55 delivery challans,
+            VyaaparSync unifies your customer CRM, multi-warehouse stock, statutory GST Rule 55 delivery challans,
             BOM production assemblies, and customer financial ledgers into one transaction-safe operations workspace.
           </p>
 
@@ -673,7 +682,7 @@ export const Landing: React.FC = () => {
 
                 <div className="plan-card-action">
                   <a
-                    href="mailto:sales@stockpulse.in?subject=Custom%20Software%20%26%20Enterprise%20ERP%20Inquiry"
+                    href="mailto:sales@vyaaparsync.in?subject=Custom%20Software%20%26%20Enterprise%20ERP%20Inquiry"
                     id="pricing-custom-sales"
                     className="btn btn-secondary w-full justify-center"
                   >
@@ -752,8 +761,8 @@ export const Landing: React.FC = () => {
           <div className="landing-footer-grid">
             <div>
               <div className="landing-footer-brand-header">
-                <div className="logo-mark" aria-hidden="true">S</div>
-                <span className="logo-text">StockPulse</span>
+                <div className="logo-mark" aria-hidden="true">V</div>
+                <span className="logo-text">VyaaparSync</span>
               </div>
               <p className="landing-footer-brand-desc">
                 A focused B2B operations platform connecting CRM, sales, live inventory, delivery challans, GST compliance, and audit intelligence.
@@ -804,7 +813,7 @@ export const Landing: React.FC = () => {
           </div>
 
           <div className="landing-footer-bottom">
-            <span>© 2026 StockPulse SaaS Technologies. Built for Indian B2B Supply Chains 🇮🇳</span>
+            <span>© 2026 VyaaparSync SaaS Technologies. Built for Indian B2B Supply Chains 🇮🇳</span>
             <div className="flex-center gap-16">
               <a href="#faqs" className="landing-footer-link">Privacy Policy</a>
               <span aria-hidden="true" style={{ color: 'var(--border-color)' }}>·</span>

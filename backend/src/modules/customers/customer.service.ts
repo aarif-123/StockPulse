@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { CustomerStatus, CustomerType, Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { AppError } from '../../middleware/error-handler';
 import { entitlementService } from '../subscriptions/entitlement.service';
@@ -13,12 +13,12 @@ function toDbFields(input: CreateCustomerInput | UpdateCustomerInput) {
   const { customerType, gstNumber, ...rest } = input as CreateCustomerInput & { customerType?: string; gstNumber?: string };
   return {
     ...rest,
-    ...(customerType !== undefined && { type: customerType as any }),
+    ...(customerType !== undefined && { type: customerType as CustomerType }),
     ...(gstNumber    !== undefined && { gstin: gstNumber }),
   };
 }
 
-function toResponse(customer: any) {
+function toResponse(customer: Record<string, unknown>) {
   const { type, gstin, ...rest } = customer;
   return {
     ...rest,
@@ -56,7 +56,7 @@ export async function createCustomer(organizationId: string, input: CreateCustom
         },
       });
 
-      return toResponse(customer);
+      return toResponse(customer as unknown as Record<string, unknown>);
     });
   } catch (err) {
     handleUniqueConstraint(err);
@@ -69,8 +69,8 @@ export async function listCustomers(organizationId: string, query: ListQueryInpu
 
   const where: Prisma.CustomerWhereInput = {
     organizationId,
-    ...(status       && { status: status as any }),
-    ...(customerType && { type: customerType as any }),
+    ...(status       && { status: status as CustomerStatus }),
+    ...(customerType && { type: customerType as CustomerType }),
     ...(search && {
       OR: [
         { name:         { contains: search, mode: 'insensitive' } },

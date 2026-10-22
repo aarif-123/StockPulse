@@ -153,7 +153,7 @@ export const PlatformLayout: React.FC = () => {
             {!sidebarCollapsed && (
               <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <span className="logo-text" style={{ color: '#f8fafc', fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>
-                  StockPulse
+                  VyaaparSync
                 </span>
                 <span style={{ fontSize: '9.5px', color: '#f59e0b', letterSpacing: '0.8px', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>
                   Platform Super Admin

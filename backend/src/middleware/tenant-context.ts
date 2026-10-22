@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
+import { OrgRole } from '@prisma/client';
 import prisma from '../config/database';
 import { AppError } from './error-handler';
 import { getRolePermissions } from '../config/permissions';
@@ -53,8 +54,8 @@ export async function resolveTenantContext(
 
     req.tenant = {
       organizationId: cached.organizationId,
-      role: cached.role as any,
-      permissions: cached.permissions as any,
+      role: cached.role as OrgRole,
+      permissions: cached.permissions,
     };
 
     const isExemptRoute =
@@ -70,7 +71,7 @@ export async function resolveTenantContext(
       if (cached.subscriptionStatus === 'EXPIRED' || cached.subscriptionStatus === 'CANCELLED' || isTrialExpired) {
         return next(
           AppError.forbidden(
-            'Your 7-day free trial or subscription has expired. Please upgrade on the Billing & Plans page to continue using StockPulse.'
+            'Your 7-day free trial or subscription has expired. Please upgrade on the Billing & Plans page to continue using VyaaparSync.'
           )
         );
       }
@@ -198,7 +199,7 @@ export async function resolveTenantContext(
 
         return next(
           AppError.forbidden(
-            'Your 7-day free trial or subscription has expired. Please upgrade on the Billing & Plans page to continue using StockPulse.'
+            'Your 7-day free trial or subscription has expired. Please upgrade on the Billing & Plans page to continue using VyaaparSync.'
           )
         );
       }

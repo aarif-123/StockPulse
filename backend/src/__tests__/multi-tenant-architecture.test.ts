@@ -34,6 +34,9 @@ jest.mock('../config/database', () => ({
     organizationMembership: {
       count: jest.fn(),
     },
+    organization: {
+      update: jest.fn(),
+    },
     auditLog: {
       create: jest.fn(),
     },
@@ -106,7 +109,7 @@ describe('Multi-Tenant SaaS Architecture & RBAC System', () => {
 
       expect(intent.status).toBe(PaymentRequestStatus.PENDING);
       expect(intent.upiQrData).toBeDefined();
-      expect(intent.upiQrData?.upiId).toBe('stockpulse.saas@hdfcbank');
+      expect(intent.upiQrData?.upiId).toBe('vyaaparsync.saas@hdfcbank');
       expect(intent.upiQrData?.qrString).toContain('upi://pay');
       expect(intent.upiQrData?.qrString).toContain('am=4499');
     });

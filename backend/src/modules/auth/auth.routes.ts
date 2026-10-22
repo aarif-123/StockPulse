@@ -7,7 +7,7 @@ const router = Router();
 // Public auth endpoints
 router.post('/login', authController.login);
 router.post('/register', authController.register);
-``
+
 // Protected identity profile endpoints
 router.get('/me', authenticate, authController.getMe);
 router.put('/profile', authenticate, authController.updateProfile);

@@ -1445,7 +1445,7 @@ export const Reports: React.FC = () => {
               <div style={{ gridColumn: 'span 2' }}>
                 <span style={{ color: 'var(--text-tertiary)', display: 'block', fontSize: '11px' }}>Operator / System Actor</span>
                 <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-                  {selectedMovement.user?.name ?? 'System'} ({selectedMovement.user?.email ?? 'automation@stockpulse.internal'})
+                  {selectedMovement.user?.name ?? 'System'} ({selectedMovement.user?.email ?? 'automation@vyaaparsync.internal'})
                 </span>
               </div>
             </div>

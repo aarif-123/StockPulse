@@ -172,7 +172,7 @@ export const ProfileSettings: React.FC = () => {
                   {activeOrg?.role || user?.role || 'SALES'} Role
                 </span>
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                  {activeOrg?.organizationName || 'StockPulse Workspace'}
+                  {activeOrg?.organizationName || 'VyaaparSync Workspace'}
                 </div>
               </div>
             </div>

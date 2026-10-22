@@ -1,7 +1,6 @@
 import {
   createChallan,
   listChallans,
-  getChallanById,
 } from '../modules/challans/challan.service';
 import prisma from '../config/database';
 

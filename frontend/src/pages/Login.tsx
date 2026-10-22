@@ -130,8 +130,8 @@ export const Login: React.FC = () => {
     <div className="login-container">
       <div className="login-card" style={{ maxWidth: isRegister ? '440px' : '400px' }}>
         <div className="login-header">
-          <div className="login-logo">S</div>
-          <h1 className="login-title">{isRegister ? 'Register Workspace' : 'StockPulse'}</h1>
+          <div className="login-logo">V</div>
+          <h1 className="login-title">{isRegister ? 'Register Workspace' : 'VyaaparSync'}</h1>
           <p className="login-subtitle">
             {isRegister
               ? 'Launch your dedicated inventory & CRM hub'
@@ -193,7 +193,7 @@ export const Login: React.FC = () => {
                   style={{ fontFamily: 'var(--font-mono)' }}
                 />
                 <span className="fs-11 color-tertiary" style={{ marginTop: '4px', display: 'block' }}>
-                  Your team will access via StockPulse slug link.
+                  Your team will access via VyaaparSync slug link.
                 </span>
               </div>
             </>

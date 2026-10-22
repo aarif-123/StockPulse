@@ -20,6 +20,7 @@ import reportsRouter from './modules/reports/reports.routes';
 import paymentsRouter from './modules/payments/payment.routes';
 import { bomRouter } from './modules/bom/bom.routes';
 import notificationsRouter from './modules/notifications/notification.routes';
+import intelligenceRouter from './modules/intelligence/intelligence.routes';
 
 const app = express();
 
@@ -166,6 +167,10 @@ app.use('/bom', bomRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
 app.use('/notifications', notificationsRouter);
+
+// 6. Intelligence AI Layer (Reasoning & Analytics)
+app.use('/api/intelligence', intelligenceRouter);
+app.use('/api/v1/intelligence', intelligenceRouter);
 
 // ── Error handling (must be last) ─────────────────────────────────────────────
 app.use(notFound);

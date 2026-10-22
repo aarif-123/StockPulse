@@ -1,8 +1,8 @@
+/// <reference types="jest" />
 import {
   createProduct,
   listProducts,
   getProductById,
-  updateProduct,
 } from '../modules/products/product.service';
 import prisma from '../config/database';
 

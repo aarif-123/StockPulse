@@ -213,7 +213,7 @@ export const BillingSubscriptions: React.FC = () => {
               </span>
             </div>
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-              You are currently evaluating StockPulse with all enterprise features unlocked. After 7 days, operations access will be locked until a commercial plan is chosen.
+              You are currently evaluating VyaaparSync with all enterprise features unlocked. After 7 days, operations access will be locked until a commercial plan is chosen.
             </div>
           </div>
         </div>

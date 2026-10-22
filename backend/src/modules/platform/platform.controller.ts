@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { platformService } from './platform.service';
 import { auditService } from '../audit/audit.service';
 import { z } from 'zod';
-import { UserStatus, OrgStatus } from '@prisma/client';
+import { UserStatus, OrgStatus, AuditScope } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
 const CreateOrganizationSchema = z.object({
@@ -101,7 +101,7 @@ export const platformController = {
   async listOrganizations(req: Request, res: Response, next: NextFunction) {
     try {
       const search = req.query['search'] as string | undefined;
-      const status = req.query['status'] as any;
+      const status = req.query['status'] as OrgStatus | undefined;
       const page = req.query['page'] ? parseInt(req.query['page'] as string, 10) : 1;
       const limit = req.query['limit'] ? parseInt(req.query['limit'] as string, 10) : 50;
 
@@ -187,7 +187,7 @@ export const platformController = {
   async listUsers(req: Request, res: Response, next: NextFunction) {
     try {
       const search = req.query['search'] as string | undefined;
-      const status = req.query['status'] as any;
+      const status = req.query['status'] as UserStatus | undefined;
       const role = req.query['role'] as string | undefined;
       const page = req.query['page'] ? parseInt(req.query['page'] as string, 10) : 1;
       const limit = req.query['limit'] ? parseInt(req.query['limit'] as string, 10) : 50;
@@ -323,7 +323,7 @@ export const platformController = {
   async getPlatformAuditLogs(req: Request, res: Response, next: NextFunction) {
     try {
       const search = req.query['search'] as string | undefined;
-      const scope = req.query['scope'] as any;
+      const scope = req.query['scope'] as AuditScope | undefined;
       const page = req.query['page'] ? parseInt(req.query['page'] as string, 10) : 1;
       const limit = req.query['limit'] ? parseInt(req.query['limit'] as string, 10) : 50;
 

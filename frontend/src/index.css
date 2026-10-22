@@ -54,6 +54,311 @@
 
 
 /* ═══════════════════════════════════════════════════════════
+   1b. LIGHT THEME OVERRIDES
+   Applied by adding the `light-mode` class to <html>.
+   Default (no class) = dark mode, which is the baseline.
+   Premium Crisp-White & Royal Blue palette — trusted, modern, vibrant.
+   ═══════════════════════════════════════════════════════════ */
+
+.light-mode {
+  /* Backgrounds — clean layered whites with a sky-blue warmth */
+  --bg-primary: #f0f4ff;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e8eeff;
+  --bg-elevated: #ffffff;
+
+  /* Text — deep navy ink hierarchy for maximum readability */
+  --text-primary: #0d1b4b;
+  --text-secondary: #3a4a7a;
+  --text-tertiary: #6b7db3;
+
+  /* Borders — cool blue-tinted strokes */
+  --border-color: #c8d4f0;
+  --border-focus: #2563eb;
+
+  /* Brand accent — Royal Blue (energetic, finance-grade trust) */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: rgba(37, 99, 235, 0.08);
+  --primary-border: rgba(37, 99, 235, 0.28);
+
+  /* Semantic status — vibrant & accessible */
+  --success: #059669;
+  --success-light: rgba(5, 150, 105, 0.1);
+  --warning: #d97706;
+  --warning-light: rgba(217, 119, 6, 0.1);
+  --danger: #dc2626;
+  --danger-light: rgba(220, 38, 38, 0.1);
+  --info: #0891b2;
+  --info-light: rgba(8, 145, 178, 0.08);
+
+  /* Shadows — royal blue-tinted, rich depth */
+  --shadow-sm: 0 1px 4px rgba(37, 99, 235, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(37, 99, 235, 0.1), 0 2px 6px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 12px 32px rgba(37, 99, 235, 0.14), 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Light-mode scrollbar — royal blue thumbs */
+.light-mode ::-webkit-scrollbar-thumb {
+  background: rgba(37, 99, 235, 0.22);
+}
+
+.light-mode ::-webkit-scrollbar-thumb:hover {
+  background: rgba(37, 99, 235, 0.4);
+}
+
+.light-mode * {
+  scrollbar-color: rgba(37, 99, 235, 0.22) transparent;
+}
+
+/* Featured pricing card — light mode override.
+   The dark theme uses a near-black gradient which clashes in light mode.
+   In light mode we flip it to a vibrant Royal Blue gradient. */
+.light-mode .modern-plan-card--featured {
+  background: linear-gradient(145deg, #2563eb 0%, #1d4ed8 60%, #1e3a8a 100%);
+  border-color: rgba(37, 99, 235, 0.6);
+  box-shadow: 0 0 28px rgba(37, 99, 235, 0.3), 0 8px 24px rgba(37, 99, 235, 0.2);
+}
+
+.light-mode .modern-plan-card--featured:hover {
+  border-color: rgba(37, 99, 235, 0.9);
+  box-shadow: 0 0 36px rgba(37, 99, 235, 0.4), 0 12px 32px rgba(37, 99, 235, 0.25);
+}
+
+/* Keep text white inside the featured card in light mode */
+.light-mode .modern-plan-card--featured .plan-tier-name,
+.light-mode .modern-plan-card--featured .plan-price-val,
+.light-mode .modern-plan-card--featured .plan-tier-desc,
+.light-mode .modern-plan-card--featured .plan-price-period,
+.light-mode .modern-plan-card--featured .plan-saving-callout,
+.light-mode .modern-plan-card--featured .spec-label,
+.light-mode .modern-plan-card--featured .spec-value,
+.light-mode .modern-plan-card--featured .plan-feature-header,
+.light-mode .modern-plan-card--featured .plan-feature-item {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.light-mode .modern-plan-card--featured .plan-license-spec-box--pro {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.light-mode .modern-plan-card--featured .plan-card-pricing {
+  border-bottom-color: rgba(255, 255, 255, 0.2);
+}
+
+.light-mode .modern-plan-card--featured .featured-ribbon-badge {
+  background: #f59e0b;
+  color: #1e1b00;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.5);
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   LIGHT MODE — FULL LANDING PAGE OVERRIDES
+   Fixes all hardcoded dark colors so the landing page looks
+   stunning and cohesive in light mode.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Announcement bar: dark gradient → vibrant royal-blue gradient ── */
+.light-mode .landing-announcement {
+  background: linear-gradient(90deg, #1d4ed8, #2563eb, #3b82f6, #2563eb, #1d4ed8);
+  background-size: 200% 100%;
+  animation: announceShimmer 6s ease infinite;
+}
+
+@keyframes announceShimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+
+/* ── Navbar: dark blur → frosted white glass ── */
+.light-mode .landing-navbar {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom-color: #c8d4f0;
+  box-shadow: 0 1px 16px rgba(37, 99, 235, 0.07);
+}
+
+/* ── Eyebrow pill: purple dark-mode → sky blue light-mode ── */
+.light-mode .landing-eyebrow-pill {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.3);
+  color: #1d4ed8;
+}
+
+/* ── Hero section: add a vivid blue-white radial gradient bg ── */
+.light-mode .landing-hero {
+  background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(37, 99, 235, 0.12) 0%, transparent 70%);
+}
+
+/* ── Hero stats box: stronger shadow for light bg ── */
+.light-mode .landing-hero-stats {
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Hero mockup wrapper: swap dark purple glow → royal blue glow ── */
+.light-mode .landing-hero-mockup-wrapper {
+  box-shadow: 0 -8px 60px rgba(37, 99, 235, 0.18), 0 35px 70px -15px rgba(37, 99, 235, 0.12);
+}
+
+/* ── Hero image frame: swap near-black bg → subtle light bg ── */
+.light-mode .hero-image-mockup-frame {
+  background: var(--bg-tertiary);
+}
+
+/* ── Floating info badges: dark glass → white glass with blue accent ── */
+.light-mode .hero-floating-badge {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-color: rgba(37, 99, 235, 0.25);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  color: var(--text-primary);
+}
+
+/* ── Showcase tabs active: clean highlight ── */
+.light-mode .showcase-tab:hover {
+  border-color: rgba(37, 99, 235, 0.3);
+}
+
+/* ── Showcase bar chart: dark white gradient → royal blue gradient ── */
+.light-mode .showcase-bar {
+  background: linear-gradient(to top, #2563eb, #93c5fd);
+  opacity: 0.75;
+}
+
+.light-mode .showcase-bar:hover {
+  opacity: 1;
+}
+
+/* ── Workflow icon: teal/indigo on dark → richer tones on light ── */
+.light-mode .workflow-icon--indigo {
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46e5;
+}
+
+.light-mode .workflow-icon--teal {
+  background: rgba(20, 184, 166, 0.12);
+  color: #0d9488;
+}
+
+/* ── Module icon: same fix ── */
+.light-mode .module-icon--indigo {
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46e5;
+}
+
+.light-mode .module-icon--teal {
+  background: rgba(20, 184, 166, 0.12);
+  color: #0d9488;
+}
+
+/* ── Role avatar colors: dark-mode light text → deep rich text ── */
+.light-mode .role-preview-avatar--admin {
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.light-mode .role-preview-avatar--sales {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.3);
+}
+
+.light-mode .role-preview-avatar--warehouse {
+  background: rgba(5, 150, 105, 0.1);
+  color: #059669;
+  border-color: rgba(5, 150, 105, 0.3);
+}
+
+.light-mode .role-preview-avatar--accounts {
+  background: rgba(217, 119, 6, 0.1);
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.3);
+}
+
+/* ── Industry vertical cards: dark gradient → vibrant blue gradient ── */
+.light-mode .vertical-card {
+  background: linear-gradient(145deg, #dbeafe 0%, #eff6ff 50%, #e0e7ff 100%);
+  border-color: #bfdbfe;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.08);
+}
+
+.light-mode .vertical-card:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 12px 32px rgba(37, 99, 235, 0.16), 0 0 24px rgba(37, 99, 235, 0.08);
+  transform: translateY(-4px);
+}
+
+.light-mode .vertical-card__icon-box {
+  background: rgba(37, 99, 235, 0.12);
+  border-color: rgba(37, 99, 235, 0.25);
+  color: #1d4ed8;
+}
+
+.light-mode .vertical-card__tag {
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.2);
+}
+
+.light-mode .vertical-card__title {
+  color: #0d1b4b;
+}
+
+.light-mode .vertical-card__metric {
+  color: #059669;
+  background: rgba(5, 150, 105, 0.1);
+  border-color: rgba(5, 150, 105, 0.25);
+}
+
+.light-mode .vertical-card__chips {
+  border-top-color: rgba(37, 99, 235, 0.12);
+}
+
+.light-mode .vertical-chip {
+  background: rgba(37, 99, 235, 0.06);
+  border-color: rgba(37, 99, 235, 0.15);
+  color: #3a4a7a;
+}
+
+/* ── Footer: hover color swap from white → primary blue ── */
+.light-mode .landing-footer-link:hover {
+  color: var(--primary);
+}
+
+/* ── Footer status badge: dark glow green → crisp light green ── */
+.light-mode .landing-footer-status {
+  background: rgba(5, 150, 105, 0.1);
+  border-color: rgba(5, 150, 105, 0.3);
+  color: #059669;
+}
+
+/* ── Final CTA section: add a blue gradient wash ── */
+.light-mode .landing-final-cta {
+  background: linear-gradient(180deg, #ffffff 0%, #f0f4ff 100%);
+}
+
+/* ── Alt section: lighter tint on light bg ── */
+.light-mode .landing-section--alt {
+  background: #f8faff;
+}
+
+/* ── Section: subtle blue top border ── */
+.light-mode .landing-section {
+  border-top-color: #c8d4f0;
+}
+
+/* ── Hero preview box: lighter shadow ── */
+.light-mode .landing-hero-preview {
+  box-shadow: 0 20px 50px -12px rgba(37, 99, 235, 0.15);
+}
+
+
+/* ═══════════════════════════════════════════════════════════
    2. BASE RESET
    ═══════════════════════════════════════════════════════════ */
 
@@ -1087,26 +1392,31 @@ textarea {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 200;
+  z-index: 1000;
   padding: 16px;
 }
 
-.modal-dialog {
-  background-color: var(--bg-secondary);
+.modal-dialog,
+.modal-content,
+.modal-container,
+.modal-box {
+  background-color: var(--bg-secondary) !important;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   max-width: 560px;
   width: 100%;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
   overflow: hidden;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
+  padding: 24px;
 }
 
 .modal-header {
@@ -3274,6 +3584,7 @@ textarea {
   max-width: 900px;
   background: linear-gradient(135deg, var(--text-primary) 30%, var(--primary) 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -10436,32 +10747,26 @@ textarea {
   z-index: 9999;
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 8px 16px 8px 10px;
-  border-radius: 9999px;
-  background: rgba(15, 23, 42, 0.94);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1.5px solid rgba(56, 189, 248, 0.65);
-  color: #f8fafc;
+  justify-content: center;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
   cursor: grab;
   user-select: none;
   touch-action: none;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.35), inset 0 0 10px rgba(56, 189, 248, 0.12);
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  box-shadow: none;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   will-change: transform, left, top;
 }
 
 .dost-float-trigger:hover {
-  border-color: #38bdf8;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 30px rgba(56, 189, 248, 0.55), inset 0 0 14px rgba(56, 189, 248, 0.25);
+  transform: scale(1.08);
 }
 
 .dost-float-trigger.is-dragging {
   cursor: grabbing !important;
-  transform: scale(1.08) rotate(2deg) !important;
-  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.85), 0 0 40px rgba(56, 189, 248, 0.75), inset 0 0 18px rgba(56, 189, 248, 0.35) !important;
-  border-color: #38bdf8 !important;
+  transform: scale(1.15) rotate(2deg) !important;
   animation: none !important;
 }
 
@@ -10552,3 +10857,329 @@ textarea {
   width: 100%;
   min-width: 950px;
 }
+
+
+/* ═══════════════════════════════════════════════════════════
+   LIGHT MODE — COMPONENT OVERRIDES
+   Covers hardcoded rgba / hex colors that are not driven
+   by CSS variables and would look wrong in light mode.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Scrollbars ── */
+.light-mode .sidebar-menu {
+  scrollbar-color: rgba(15, 23, 42, 0.1) transparent;
+}
+.light-mode .sidebar-menu::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.12);
+}
+.light-mode .sidebar-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 23, 42, 0.25);
+}
+
+/* ── Mobile sidebar overlay shadow ── */
+.light-mode .sidebar.mobile-open {
+  box-shadow: 0 0 32px rgba(0, 0, 0, 0.18);
+}
+
+/* ── btn-secondary hover: hardcoded white text + white border ── */
+.light-mode .btn-secondary:hover:not(:disabled) {
+  border-color: var(--primary-border);
+  color: var(--text-primary);
+}
+
+/* ── btn-primary: invert for light surfaces (black btn → white text contrast) ── */
+.light-mode .btn-primary {
+  background-color: var(--primary);
+  color: #ffffff !important;
+  border-color: var(--primary);
+}
+.light-mode .btn-primary:hover:not(:disabled) {
+  background-color: var(--primary-hover);
+  color: #ffffff !important;
+}
+
+/* ── Pagination active btn ── */
+.light-mode .pagination-btn--active,
+.light-mode .pagination-btn--active:hover {
+  color: #ffffff !important;
+}
+
+/* ── Table row hover: was rgba(white, 0.02) — invisible on white ── */
+.light-mode .data-table tbody tr:hover {
+  background-color: rgba(15, 23, 42, 0.03);
+}
+
+/* ── Modal overlay & solid opaque modal cards ── */
+.light-mode .modal-overlay {
+  background-color: rgba(15, 23, 42, 0.6) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+
+.light-mode .modal-dialog,
+.light-mode .modal-content,
+.light-mode .modal-container,
+.light-mode .modal-box {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.2), 0 10px 10px -5px rgba(15, 23, 42, 0.1) !important;
+  color: #0f172a !important;
+}
+
+/* ── Theme toggle: golden amber tint for the sun icon in dark, slate for moon in light ── */
+.light-mode .theme-toggle-btn {
+  color: var(--text-secondary);
+}
+
+/* ── Logo mark: stays white gradient with black letter (brand identity) ── */
+.light-mode .logo-mark {
+  background: linear-gradient(135deg, #1e293b, #475569);
+  color: #ffffff;
+}
+
+/* ── Login logo: same brand treatment ── */
+.light-mode .login-logo {
+  background: linear-gradient(135deg, #1e293b, #475569);
+  color: #ffffff;
+}
+
+/* ── Logout button: adapts border/bg to light surface ── */
+.light-mode .logout-btn {
+  background-color: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
+/* ── Skeleton shimmer: uses bg-elevated/tertiary vars naturally,
+   but the gradient may appear too dark — use lighter tones ── */
+.light-mode .skeleton-block {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 37%, #f1f5f9 63%);
+  background-size: 800px 100%;
+}
+
+/* ── Toast messages: bg-secondary already white in light mode, fine.
+   Shadow needs to be lighter ── */
+.light-mode .toast {
+  box-shadow: var(--shadow-md);
+}
+
+/* ── AI Chatbot / DOST widget — these sections use many hardcoded dark
+   rgba values. We override the key structural backgrounds here. ── */
+
+/* Chatbot floating panel */
+.light-mode .dost-chat-container,
+.light-mode .ai-chat-widget {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+/* Chat bubble backgrounds */
+.light-mode .dost-msg-user {
+  background: var(--primary);
+  color: #ffffff;
+}
+.light-mode .dost-msg-assistant {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+/* ── Platform Layout ── */
+/* The platform layout uses inline styles with hardcoded dark bg (#090d16).
+   We target its layout-container in light mode. ── */
+.light-mode .layout-container[style] {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* ── NotificationBell dropdown ── */
+.light-mode [class*="notification"],
+.light-mode [class*="notif-"] {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+/* ── Command palette input ── */
+.light-mode .command-palette-card {
+  box-shadow: var(--shadow-lg);
+}
+
+/* ── Landing Mobile Navigation Drawer ── */
+.light-mode .landing-mobile-nav {
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+.light-mode .landing-mobile-nav-link {
+  border-bottom-color: var(--border-color);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   PRINT SLIP & STATUTORY DOCUMENT FORMATTING (@media print)
+   ─────────────────────────────────────────────────────────────────────────── */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm 10mm 12mm;
+  }
+
+  /* Reset body and hide web app navigation chrome */
+  body, html {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 12px !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Hide web app UI navigation chrome, sidebar, headers, popups, and action buttons */
+  .sidebar,
+  .header-bar,
+  .page-header,
+  .toast-container,
+  .copilot-float-container,
+  .support-session-banner,
+  .hamburger-btn,
+  .copy-pill,
+  .no-print,
+  #print-challan-btn,
+  #clone-challan-btn,
+  #cancel-challan-btn,
+  #confirm-challan-btn {
+    display: none !important;
+  }
+
+  .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    width: 100% !important;
+  }
+
+  .page-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Printable Slip Card Container */
+  .printable-slip-card,
+  .printable-slip-card * {
+    color: #0f172a !important;
+    text-shadow: none !important;
+    opacity: 1 !important;
+  }
+
+  .printable-slip-card {
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    padding: 24px !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .printable-slip-header {
+    border-bottom: 2.5px solid #0f172a !important;
+    padding-bottom: 16px !important;
+    margin-bottom: 20px !important;
+  }
+
+  .slip-title {
+    color: #0f172a !important;
+    font-size: 24px !important;
+    font-weight: 900 !important;
+  }
+
+  .slip-doc-type {
+    color: #1e293b !important;
+    font-weight: 900 !important;
+  }
+
+  .slip-gstin, .slip-address, .slip-date, .slip-challan-num {
+    color: #1e293b !important;
+    font-weight: 700 !important;
+  }
+
+  .printable-slip-box {
+    background: #f8fafc !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    padding: 14px !important;
+  }
+
+  .printable-slip-box * {
+    color: #0f172a !important;
+  }
+
+  .slip-box-header {
+    border-bottom: 1.5px solid #94a3b8 !important;
+    color: #0f172a !important;
+    font-weight: 900 !important;
+  }
+
+  /* Table Print Formatting */
+  .printable-slip-card .data-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 12px !important;
+  }
+
+  .printable-slip-card .data-table th {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border-bottom: 2.5px solid #475569 !important;
+    padding: 8px 10px !important;
+    text-transform: uppercase !important;
+    font-size: 11px !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.05em !important;
+  }
+
+  .printable-slip-card .data-table td {
+    border-bottom: 1px solid #cbd5e1 !important;
+    padding: 10px 10px !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
+  }
+
+  .printable-slip-card .data-table tfoot tr {
+    background: transparent !important;
+  }
+
+  .printable-slip-card .data-table tfoot td {
+    border-bottom: 1px solid #cbd5e1 !important;
+    padding: 8px 10px !important;
+    color: #0f172a !important;
+    font-weight: 800 !important;
+  }
+
+  .printable-slip-card .grand-total-row td {
+    background: #f8fafc !important;
+    border-top: 2.5px solid #0f172a !important;
+    border-bottom: 2.5px solid #0f172a !important;
+    font-weight: 900 !important;
+    font-size: 15px !important;
+    color: #0f172a !important;
+  }
+
+  /* Signature Block Print Formatting */
+  .signature-block {
+    page-break-inside: avoid !important;
+    margin-top: 40px !important;
+    padding-top: 24px !important;
+    border-top: 2px solid #cbd5e1 !important;
+  }
+
+  .signature-block * {
+    color: #0f172a !important;
+  }
+
+  .sig-line {
+    border-bottom: 2px dashed #475569 !important;
+  }
+}
+
+

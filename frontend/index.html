@@ -2,6 +2,15 @@
 <html lang="en">
 
 <head>
+  <!-- Theme initialization: runs synchronously before CSS to prevent flash of wrong theme. -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('vyaaparsync-theme') || localStorage.getItem('stockpulse-theme');
+        if (t === 'light') document.documentElement.classList.add('light-mode');
+      } catch (e) { /* ignore — localStorage unavailable */ }
+    })();
+  </script>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="manifest" href="/manifest.webmanifest" />
@@ -15,35 +24,35 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" />
 
   <!-- Primary SEO Meta Tags -->
-  <title>StockPulse — GST Rule 55 Delivery Challans &amp; B2B Supply Chain Platform</title>
+  <title>VyaaparSync — GST Rule 55 Delivery Challans &amp; B2B Supply Chain Platform</title>
   <meta name="title"
-    content="StockPulse — GST Rule 55 Delivery Challans &amp; B2B Supply Chain Platform" />
+    content="VyaaparSync — GST Rule 55 Delivery Challans &amp; B2B Supply Chain Platform" />
   <meta name="description"
     content="Multi-tenant Indian B2B operations platform with statutory GST Rule 55 delivery challans, multi-warehouse stock control, BOM production assemblies, customer financial ledgers, and 4-role capability-based RBAC." />
   <meta name="keywords"
     content="B2B inventory management software, GST delivery challan generator, GST Rule 55 compliance India, multi-warehouse stock management, BOM production assemblies, cycle count stock take, customer financial ledger, RBAC inventory software, multi-tenant SaaS India, supply chain ERP India" />
-  <meta name="author" content="StockPulse Enterprise" />
+  <meta name="author" content="VyaaparSync Enterprise" />
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
-  <link rel="canonical" href="https://stockpulse.enterprise/" />
+  <link rel="canonical" href="https://vyaaparsync.enterprise/" />
 
   <!-- Open Graph / Facebook / LinkedIn / WhatsApp -->
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://stockpulse.enterprise/" />
+  <meta property="og:url" content="https://vyaaparsync.enterprise/" />
   <meta property="og:title"
-    content="StockPulse — B2B Inventory Intelligence, GST Rule 55 Challans &amp; Supply Chain ERP" />
+    content="VyaaparSync — B2B Inventory Intelligence, GST Rule 55 Challans &amp; Supply Chain ERP" />
   <meta property="og:description"
     content="Multi-tenant B2B SaaS platform with GST Rule 55 delivery challans, multi-warehouse stock control, BOM production assemblies, customer financial ledgers, and strict RBAC. Starting ₹149/mo." />
-  <meta property="og:image" content="https://stockpulse.enterprise/favicon.svg" />
-  <meta property="og:site_name" content="StockPulse" />
+  <meta property="og:image" content="https://vyaaparsync.enterprise/favicon.svg" />
+  <meta property="og:site_name" content="VyaaparSync" />
   <meta property="og:locale" content="en_IN" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:url" content="https://stockpulse.enterprise/" />
-  <meta name="twitter:title" content="StockPulse — B2B Inventory Intelligence &amp; Supply Chain Operations" />
+  <meta name="twitter:url" content="https://vyaaparsync.enterprise/" />
+  <meta name="twitter:title" content="VyaaparSync — B2B Inventory Intelligence &amp; Supply Chain Operations" />
   <meta name="twitter:description"
     content="Multi-tenant B2B operations platform with GST Rule 55 challans, RBAC for 4 roles, BOM production assemblies, cycle-count stock takes, and customer financial ledgers." />
-  <meta name="twitter:image" content="https://stockpulse.enterprise/favicon.svg" />
+  <meta name="twitter:image" content="https://vyaaparsync.enterprise/favicon.svg" />
 
   <!-- Comprehensive JSON-LD Structured Data Graph for Google Rich Snippets -->
   <script type="application/ld+json">
@@ -52,11 +61,11 @@
         "@graph": [
           {
             "@type": "SoftwareApplication",
-            "@id": "https://stockpulse.enterprise/#software",
-            "name": "StockPulse",
+            "@id": "https://vyaaparsync.enterprise/#software",
+            "name": "VyaaparSync",
             "applicationCategory": "BusinessApplication",
             "operatingSystem": "Web, Cloud, All Modern Browsers",
-            "url": "https://stockpulse.enterprise/",
+            "url": "https://vyaaparsync.enterprise/",
             "description": "Enterprise B2B inventory management platform with GST Rule 55 statutory delivery challan generation, multi-warehouse stock control, BOM production assemblies, and customer financial ledgers.",
             "offers": {
               "@type": "AggregateOffer",
@@ -111,10 +120,10 @@
           },
           {
             "@type": "Organization",
-            "@id": "https://stockpulse.enterprise/#organization",
-            "name": "StockPulse",
-            "url": "https://stockpulse.enterprise/",
-            "logo": "https://stockpulse.enterprise/favicon.svg",
+            "@id": "https://vyaaparsync.enterprise/#organization",
+            "name": "VyaaparSync",
+            "url": "https://vyaaparsync.enterprise/",
+            "logo": "https://vyaaparsync.enterprise/favicon.svg",
             "description": "Modern B2B supply chain and inventory intelligence software built for Indian distribution commerce.",
             "contactPoint": {
               "@type": "ContactPoint",
@@ -124,17 +133,17 @@
           },
           {
             "@type": "WebSite",
-            "@id": "https://stockpulse.enterprise/#website",
-            "url": "https://stockpulse.enterprise/",
-            "name": "StockPulse",
+            "@id": "https://vyaaparsync.enterprise/#website",
+            "url": "https://vyaaparsync.enterprise/",
+            "name": "VyaaparSync",
             "publisher": {
-              "@id": "https://stockpulse.enterprise/#organization"
+              "@id": "https://vyaaparsync.enterprise/#organization"
             },
             "inLanguage": "en-IN"
           },
           {
             "@type": "FAQPage",
-            "@id": "https://stockpulse.enterprise/#faq",
+            "@id": "https://vyaaparsync.enterprise/#faq",
             "mainEntity": [
               {
                 "@type": "Question",
@@ -146,10 +155,10 @@
               },
               {
                 "@type": "Question",
-                "name": "How does StockPulse automatically resolve CGST, SGST, and IGST for Rule 55 Delivery Challans?",
+                "name": "How does VyaaparSync automatically resolve CGST, SGST, and IGST for Rule 55 Delivery Challans?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "StockPulse parses the 2-digit state code from both your organization GSTIN (e.g. 27 for Maharashtra) and the customer GSTIN (e.g. 07 for Delhi). If state codes match, it automatically applies intra-state CGST (9%) + SGST (9%). If they differ, it applies inter-state IGST (18%). The correct tax split is displayed on the challan and summarized in the tax footer."
+                  "text": "VyaaparSync parses the 2-digit state code from both your organization GSTIN (e.g. 27 for Maharashtra) and the customer GSTIN (e.g. 07 for Delhi). If state codes match, it automatically applies intra-state CGST (9%) + SGST (9%). If they differ, it applies inter-state IGST (18%). The correct tax split is displayed on the challan and summarized in the tax footer."
                 }
               },
               {
@@ -157,7 +166,7 @@
                 "name": "How do BOM Production Assemblies work?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Define a Bill of Materials recipe specifying which component SKUs and quantities are consumed to produce one unit of a finished good. When you trigger an assembly run, StockPulse deducts each component from stock and increments the finished SKU — all within a single ACID database transaction."
+                  "text": "Define a Bill of Materials recipe specifying which component SKUs and quantities are consumed to produce one unit of a finished good. When you trigger an assembly run, VyaaparSync deducts each component from stock and increments the finished SKU — all within a single ACID database transaction."
                 }
               },
               {

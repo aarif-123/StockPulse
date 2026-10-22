@@ -1,3 +1,4 @@
+/// <reference types="jest" />
 import { bomService } from '../modules/bom/bom.service';
 import { PrismaClient } from '@prisma/client';
 
@@ -33,14 +34,15 @@ jest.mock('@prisma/client', () => {
     create: jest.fn(),
   };
 
-  const mClient = {
+  const mClient: any = {
     bomAssembly: mBomAssembly,
     bomComponent: mBomComponent,
     product: mProduct,
     stockMovement: mStockMovement,
     bomBuildLog: mBomBuildLog,
     auditLog: mAuditLog,
-    $transaction: jest.fn(async (cb) => {
+    $extends: jest.fn(() => mClient),
+    $transaction: jest.fn(async (cb: any) => {
       return cb(mClient);
     }),
   };
@@ -51,7 +53,7 @@ jest.mock('@prisma/client', () => {
 });
 
 describe('BOM & Production Assemblies Service Unit Tests', () => {
-  const prismaMock = new PrismaClient() as any;
+  const prismaMock = new PrismaClient() as unknown as Record<string, Record<string, jest.Mock>>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -128,7 +130,7 @@ describe('BOM & Production Assemblies Service Unit Tests', () => {
       ],
     });
 
-    expect(res.sku).toBe('KIT-CUSTOM-1');
+    expect((res as any).sku).toBe('KIT-CUSTOM-1');
     expect(prismaMock.bomAssembly.create).toHaveBeenCalledTimes(1);
   });
 

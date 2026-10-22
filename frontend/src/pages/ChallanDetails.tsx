@@ -211,93 +211,118 @@ export const ChallanDetails: React.FC = () => {
       />
 
       {/* Formal Invoice & Delivery Slip Container */}
-      <div className="card" style={{ marginBottom: '24px', padding: '28px' }}>
+      <div className="card printable-slip-card" style={{ marginBottom: '24px', padding: '28px' }}>
         {/* Invoice Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px', marginBottom: '20px' }}>
+        <div className="printable-slip-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid var(--border-color)', paddingBottom: '20px', marginBottom: '20px' }}>
           <div>
-            <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary-hover)', letterSpacing: '-0.02em' }}>
-              STOCKPULSE ENTERPRISES
+            <div className="slip-title" style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em', textTransform: 'uppercase' }}>
+              {activeOrg?.organizationName?.toUpperCase() || 'VYAAPARSYNC ENTERPRISES'}
             </div>
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              GSTIN: 27AAAAA0000A1Z5 • State Code: 27 (Maharashtra)
+            <div className="slip-gstin" style={{ fontSize: '13px', color: 'var(--text-primary)', marginTop: '4px', fontWeight: 600 }}>
+              GSTIN: 27AAAAA0000A1Z5 • State Code: {taxDetails.stateCode || '27'} (Maharashtra)
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+            <div className="slip-address" style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px', fontWeight: 500 }}>
               Logistics Hub, Sector 4, Tech City, India
             </div>
           </div>
 
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+            <div className="slip-doc-type" style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--primary-hover)', fontWeight: 800 }}>
+              DELIVERY CHALLAN
+            </div>
+            <div className="slip-challan-num" style={{ fontSize: '22px', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', marginTop: '2px' }}>
               {challan.challanNumber}
             </div>
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            <div className="slip-date" style={{ fontSize: '13px', color: 'var(--text-primary)', marginTop: '4px', fontWeight: 600 }}>
               Date: {new Date(challan.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
             </div>
-            <div style={{ marginTop: '6px' }}>
+            <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'flex-end' }}>
               {StatusBadge.challan(challan.status)}
             </div>
           </div>
         </div>
 
-        {/* Bill To / Consignee Section */}
+        {/* Bill To / Consignee & Order Metadata Section */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '24px' }}>
-          <div style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '8px' }}>
-            <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-tertiary)', fontWeight: 700, marginBottom: '6px' }}>
+          {/* CONSIGNEE / BILL TO */}
+          <div className="printable-slip-box" style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <div className="slip-box-header" style={{ fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-primary)', fontWeight: 800, marginBottom: '8px', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '4px' }}>
               CONSIGNEE / BILL TO
             </div>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+            <div className="slip-customer-name" style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
               {challan.customer?.businessName || challan.customer?.name}
             </div>
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              Attention: {challan.customer?.name}
-            </div>
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+            {challan.customer?.businessName && (
+              <div style={{ fontSize: '13px', color: 'var(--text-primary)', marginTop: '4px', fontWeight: 600 }}>
+                Attention: {challan.customer?.name}
+              </div>
+            )}
+            <div style={{ fontSize: '13px', color: 'var(--text-primary)', marginTop: '3px', fontWeight: 500 }}>
               Mobile: {challan.customer?.mobile || '—'} • Email: {challan.customer?.email || '—'}
             </div>
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+            <div style={{ fontSize: '13px', color: 'var(--text-primary)', marginTop: '3px', lineHeight: '1.4', fontWeight: 500 }}>
               Address: {challan.customer?.address || '—'}
             </div>
-            <div style={{ fontSize: '13px', color: 'var(--text-primary)', marginTop: '4px', fontWeight: 600 }}>
-              GSTIN: {challan.customer?.gstNumber || 'Unregistered'} • {taxDetails.isIntraState ? 'Intra-State Supply' : 'Inter-State Supply'}
+            <div style={{ fontSize: '13px', color: 'var(--text-primary)', marginTop: '8px', fontWeight: 700, paddingTop: '6px', borderTop: '1px dashed var(--border-color)' }}>
+              GSTIN: {challan.customer?.gstNumber || 'Unregistered'} • {taxDetails.isIntraState ? 'Intra-State Supply (CGST+SGST)' : 'Inter-State Supply (IGST)'}
             </div>
           </div>
 
-          <div style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '8px' }}>
-            <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-tertiary)', fontWeight: 700, marginBottom: '6px' }}>
+          {/* DISPATCH & ORDER METADATA */}
+          <div className="printable-slip-box" style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <div className="slip-box-header" style={{ fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-primary)', fontWeight: 800, marginBottom: '8px', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '4px' }}>
               DISPATCH & ORDER METADATA
             </div>
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.7' }}>
-              <div><strong>Prepared By:</strong> {challan.creator?.name || 'System'}</div>
-              <div><strong>Operator Email:</strong> {challan.creator?.email || '—'}</div>
-              <div><strong>Mode of Transport:</strong> Surface Cargo / Direct Fleet</div>
-              <div><strong>Payment Terms:</strong> Net 30 Days from Receipt</div>
-            </div>
+            <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
+              <tbody>
+                <tr>
+                  <td style={{ color: 'var(--text-secondary)', padding: '4px 0', width: '140px', fontWeight: 700 }}>Prepared By:</td>
+                  <td style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{challan.creator?.name || user?.name || 'System'}</td>
+                </tr>
+                <tr>
+                  <td style={{ color: 'var(--text-secondary)', padding: '4px 0', fontWeight: 700 }}>Operator Email:</td>
+                  <td style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{challan.creator?.email || user?.email || '—'}</td>
+                </tr>
+                <tr>
+                  <td style={{ color: 'var(--text-secondary)', padding: '4px 0', fontWeight: 700 }}>Mode of Transport:</td>
+                  <td style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Surface Cargo / Direct Fleet</td>
+                </tr>
+                <tr>
+                  <td style={{ color: 'var(--text-secondary)', padding: '4px 0', fontWeight: 700 }}>Payment Terms:</td>
+                  <td style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Net 30 Days from Receipt</td>
+                </tr>
+                <tr>
+                  <td style={{ color: 'var(--text-secondary)', padding: '4px 0', fontWeight: 700 }}>Place of Supply:</td>
+                  <td style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{taxDetails.isIntraState ? 'Maharashtra (27)' : 'Inter-State'}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
         {/* Line Items Table */}
         <div className="table-wrapper">
-          <table className="data-table">
+          <table className="data-table" style={{ width: '100%' }}>
             <thead>
               <tr>
-                <th style={{ width: '40px' }}>#</th>
-                <th>Item Description</th>
-                <th>SKU</th>
-                {!isWarehouse && <th className="text-right">Unit Price</th>}
-                <th style={{ textAlign: 'center' }}>Qty</th>
-                {!isWarehouse && <th className="text-right">Taxable Amt</th>}
+                <th style={{ width: '40px', textAlign: 'center', color: 'var(--text-primary)', fontWeight: 800 }}>#</th>
+                <th style={{ textAlign: 'left', color: 'var(--text-primary)', fontWeight: 800 }}>Item Description</th>
+                <th style={{ textAlign: 'left', width: '140px', color: 'var(--text-primary)', fontWeight: 800 }}>SKU</th>
+                {!isWarehouse && <th className="text-right" style={{ width: '120px', color: 'var(--text-primary)', fontWeight: 800 }}>Unit Price (₹)</th>}
+                <th style={{ textAlign: 'center', width: '80px', color: 'var(--text-primary)', fontWeight: 800 }}>Qty</th>
+                {!isWarehouse && <th className="text-right" style={{ width: '140px', color: 'var(--text-primary)', fontWeight: 800 }}>Taxable Amt (₹)</th>}
               </tr>
             </thead>
             <tbody>
               {challan.items?.map((item, idx) => (
                 <tr key={item.id}>
-                  <td style={{ color: 'var(--text-tertiary)' }}>{idx + 1}</td>
-                  <td style={{ fontWeight: 600 }}>{item.productName}</td>
-                  <td className="text-mono">{item.sku}</td>
-                  {!isWarehouse && <td className="text-right">₹{Number(item.unitPrice).toFixed(2)}</td>}
-                  <td style={{ textAlign: 'center', fontWeight: 600 }}>{item.quantity}</td>
+                  <td style={{ textAlign: 'center', color: 'var(--text-secondary)', fontWeight: 600 }}>{idx + 1}</td>
+                  <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{item.productName}</td>
+                  <td className="text-mono" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>{item.sku}</td>
+                  {!isWarehouse && <td className="text-right" style={{ fontWeight: 700, color: 'var(--text-primary)' }}>₹{Number(item.unitPrice).toFixed(2)}</td>}
+                  <td style={{ textAlign: 'center', fontWeight: 800, color: 'var(--text-primary)' }}>{item.quantity}</td>
                   {!isWarehouse && (
-                    <td className="text-right" style={{ fontWeight: 600 }}>
+                    <td className="text-right" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
                       ₹{(Number(item.unitPrice) * item.quantity).toFixed(2)}
                     </td>
                   )}
@@ -307,52 +332,59 @@ export const ChallanDetails: React.FC = () => {
             <tfoot>
               {isWarehouse ? (
                 <tr>
-                  <td colSpan={3} style={{ textAlign: 'right', fontWeight: 600 }}>Total Quantity:</td>
-                  <td style={{ textAlign: 'center', fontWeight: 700 }}>{challan.totalQuantity} units</td>
+                  <td colSpan={3} style={{ textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>Total Quantity:</td>
+                  <td style={{ textAlign: 'center', fontWeight: 800, color: 'var(--text-primary)' }}>{challan.totalQuantity} units</td>
                 </tr>
               ) : (
                 <>
+                  {/* Subtotal Row */}
                   <tr>
-                    <td colSpan={4} style={{ textAlign: 'right', fontWeight: 600 }}>Subtotal:</td>
-                    <td style={{ textAlign: 'center', fontWeight: 700 }}>{challan.totalQuantity} units</td>
-                    <td className="text-right" style={{ fontWeight: 700 }}>₹{taxDetails.subtotal.toFixed(2)}</td>
+                    <td colSpan={4} style={{ textAlign: 'right', fontWeight: 700, paddingRight: '12px', color: 'var(--text-primary)' }}>Subtotal:</td>
+                    <td style={{ textAlign: 'center', fontWeight: 800, color: 'var(--text-primary)' }}>{challan.totalQuantity} units</td>
+                    <td className="text-right" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>₹{taxDetails.subtotal.toFixed(2)}</td>
                   </tr>
 
+                  {/* GST Rows */}
                   {taxDetails.isIntraState ? (
                     <>
                       <tr>
-                        <td colSpan={5} style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
+                        <td colSpan={4} style={{ textAlign: 'right', color: 'var(--text-primary)', fontWeight: 700, paddingRight: '12px' }}>
                           Central GST (CGST {(taxDetails.cgstRate * 100).toFixed(1)}%):
                         </td>
-                        <td className="text-right" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                        <td style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>—</td>
+                        <td className="text-right" style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
                           +₹{taxDetails.cgstAmount.toFixed(2)}
                         </td>
                       </tr>
                       <tr>
-                        <td colSpan={5} style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
+                        <td colSpan={4} style={{ textAlign: 'right', color: 'var(--text-primary)', fontWeight: 700, paddingRight: '12px' }}>
                           State GST (SGST {(taxDetails.sgstRate * 100).toFixed(1)}%):
                         </td>
-                        <td className="text-right" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                        <td style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>—</td>
+                        <td className="text-right" style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
                           +₹{taxDetails.sgstAmount.toFixed(2)}
                         </td>
                       </tr>
                     </>
                   ) : (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
+                      <td colSpan={4} style={{ textAlign: 'right', color: 'var(--text-primary)', fontWeight: 700, paddingRight: '12px' }}>
                         Integrated GST (IGST {(taxDetails.igstRate * 100).toFixed(1)}%):
                       </td>
-                      <td className="text-right" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                      <td style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>—</td>
+                      <td className="text-right" style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
                         +₹{taxDetails.igstAmount.toFixed(2)}
                       </td>
                     </tr>
                   )}
 
-                  <tr style={{ background: 'var(--bg-tertiary)', fontSize: '15px' }}>
-                    <td colSpan={5} style={{ textAlign: 'right', fontWeight: 800 }}>
+                  {/* Grand Total Row */}
+                  <tr className="grand-total-row" style={{ background: 'var(--bg-tertiary)', fontSize: '15px' }}>
+                    <td colSpan={4} style={{ textAlign: 'right', fontWeight: 900, paddingRight: '12px', color: 'var(--text-primary)' }}>
                       Total Invoice Amount (INR):
                     </td>
-                    <td className="text-right" style={{ fontWeight: 800, color: 'var(--primary-hover)' }}>
+                    <td style={{ textAlign: 'center', fontWeight: 800, color: 'var(--text-secondary)' }}>—</td>
+                    <td className="text-right" style={{ fontWeight: 900, color: 'var(--text-primary)' }}>
                       ₹{taxDetails.grandTotal.toFixed(2)}
                     </td>
                   </tr>
@@ -363,30 +395,34 @@ export const ChallanDetails: React.FC = () => {
         </div>
 
         {/* Signatures and Acknowledgement Footer */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '30px',
-          marginTop: '40px',
-          paddingTop: '24px',
-          borderTop: '1px solid var(--border-color)'
-        }}>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '40px' }}>
+        <div
+          className="signature-block"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end',
+            gap: '30px',
+            marginTop: '44px',
+            paddingTop: '24px',
+            borderTop: '2px solid var(--border-color)',
+          }}
+        >
+          <div style={{ width: '45%' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '48px' }}>
               Customer Receiver Signature & Stamp:
             </div>
-            <div style={{ borderBottom: '1px solid var(--border-color)', width: '80%' }} />
-            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+            <div className="sig-line" style={{ borderBottom: '2px dashed var(--border-color)', width: '100%' }} />
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 600 }}>
               Goods received in good condition
             </div>
           </div>
 
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '40px' }}>
-              For StockPulse Enterprises (Authorized Signatory):
+          <div style={{ width: '45%', textAlign: 'right' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '48px' }}>
+              For {activeOrg?.organizationName || 'VyaaparSync Enterprises'} (Authorized Signatory):
             </div>
-            <div style={{ borderBottom: '1px solid var(--border-color)', width: '80%', marginLeft: 'auto' }} />
-            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+            <div className="sig-line" style={{ borderBottom: '2px dashed var(--border-color)', width: '100%' }} />
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 600 }}>
               Digitally Verified Dispatch
             </div>
           </div>

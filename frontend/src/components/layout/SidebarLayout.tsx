@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../hooks/useTheme';
 import { CommandPalette } from '../common/CommandPalette';
 import { SupportSessionBanner } from './SupportSessionBanner';
 import { AiAssistantChatbot } from '../chat/AiAssistantChatbot';
@@ -10,10 +11,12 @@ import {
   IconBarChart, IconSearch, IconLogOut,
   IconMenu, IconShoppingCart, IconSliders, IconClipboardCheck,
   IconLayers, IconIndianRupee, IconBell,
+  IconSun, IconMoon,
 } from '../common/Icons';
 
 export const SidebarLayout: React.FC = () => {
   const { user, activeOrg, isSuperAdmin, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -82,9 +85,9 @@ export const SidebarLayout: React.FC = () => {
       <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
-            <div className="logo-mark">S</div>
+            <div className="logo-mark">V</div>
             {!sidebarCollapsed && (
-              <span className="logo-text">StockPulse</span>
+              <span className="logo-text">VyaaparSync</span>
             )}
           </div>
           <button
@@ -271,6 +274,15 @@ export const SidebarLayout: React.FC = () => {
           </div>
 
           <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              className="hamburger-btn theme-toggle-btn"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              style={{ width: '38px', height: '38px' }}
+            >
+              {theme === 'dark' ? <IconSun size={17} /> : <IconMoon size={17} />}
+            </button>
             <NotificationBell />
           </div>
         </header>

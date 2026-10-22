@@ -2,6 +2,19 @@ import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import type { StockMovementsReportInput } from './reports.schema';
 
+export interface AbcItem {
+  id: string;
+  name: string;
+  sku: string;
+  category: string;
+  currentStock: number;
+  unitPrice: number;
+  costPrice: number;
+  costValuation: number;
+  retailValuation?: number;
+  capitalSharePercent?: number;
+}
+
 export async function getStockMovementsReport(organizationId: string, query: StockMovementsReportInput) {
   const { search, productId, type, dateFrom, dateTo, page, limit } = query;
   const skip = (page - 1) * limit;
@@ -287,13 +300,13 @@ export async function getReportsAnalytics(organizationId: string, range = '30d')
   let accumulatedCapital = 0;
   let classACount = 0;
   let classACapital = 0;
-  const classAItems: any[] = [];
+  const classAItems: AbcItem[] = [];
   let classBCount = 0;
   let classBCapital = 0;
-  const classBItems: any[] = [];
+  const classBItems: AbcItem[] = [];
   let classCCount = 0;
   let classCCapital = 0;
-  const classCItems: any[] = [];
+  const classCItems: AbcItem[] = [];
 
   const totalActiveCapital = totalCostValuation || 1;
   for (const prod of abcProducts) {

@@ -1,8 +1,8 @@
-# ⚡ StockPulse — Enterprise Multi-Tenant B2B Operations Platform
+# ⚡ VyaaparSync — Enterprise Multi-Tenant B2B Operations Platform
 
 <div align="center">
 
-![StockPulse](https://img.shields.io/badge/StockPulse-Enterprise%20Operations-7c3aed?style=for-the-badge&logo=zap&logoColor=white)
+![VyaaparSync](https://img.shields.io/badge/VyaaparSync-Enterprise%20Operations-7c3aed?style=for-the-badge&logo=zap&logoColor=white)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19.x-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![Node.js](https://img.shields.io/badge/Node.js-20%20LTS-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -24,13 +24,13 @@
 
 ## 📌 Executive Overview
 
-**StockPulse** is engineered to eliminate operational friction across sales, warehousing, finance, and platform administration in multi-tenant B2B organizations.
+**VyaaparSync** is engineered to eliminate operational friction across sales, warehousing, finance, and platform administration in multi-tenant B2B organizations.
 
 Built on a clean **Modular Monolith** architecture with strict per-tenant data isolation. Every database query is scoped by `organizationId`, enforced through foreign-key constraints and indexed columns, ensuring complete data segregation between tenants without the distributed-systems overhead of microservices.
 
-### Why StockPulse?
+### Why VyaaparSync?
 
-| Problem | StockPulse Solution |
+| Problem | VyaaparSync Solution |
 |:---|:---|
 | Scattered tools for CRM, warehouse, billing | Single unified platform per tenant |
 | Multi-tenant data leaks | `organizationId`-scoped queries on every table |
@@ -760,6 +760,6 @@ SOFTWARE.
 
 Built with precision for modern B2B supply chain and operational excellence.
 
-**StockPulse** · MIT License · © 2026 Mohammed Aarif
+**VyaaparSync** · MIT License · © 2026 Mohammed Aarif
 
 </div>

@@ -1,8 +1,8 @@
+/// <reference types="jest" />
 import {
   createCustomer,
   listCustomers,
   getCustomerById,
-  updateCustomer,
 } from '../modules/customers/customer.service';
 import prisma from '../config/database';
 
@@ -82,10 +82,11 @@ describe('Customer Service (Multi-Tenant)', () => {
         businessName: 'Doe Enterprises',
         customerType: 'RETAIL',
         address: '456 Market St',
+        status: 'ACTIVE',
       });
 
       expect(result).toBeDefined();
-      expect(result.id).toBe('cust-1');
+      expect((result as any).id).toBe('cust-1');
     });
   });
 
@@ -95,7 +96,7 @@ describe('Customer Service (Multi-Tenant)', () => {
 
       const result = await getCustomerById('org-test-1', 'cust-1');
       expect(result).toBeDefined();
-      expect(result.id).toBe('cust-1');
+      expect((result as any).id).toBe('cust-1');
       expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ id: 'cust-1', organizationId: 'org-test-1' }),

@@ -2,7 +2,7 @@
  * Generates and downloads pre-formatted CSV template for Product Bulk Import
  */
 
-export function downloadProductImportTemplate(filename = 'StockPulse_Product_Import_Template.csv'): void {
+export function downloadProductImportTemplate(filename = 'VyaaparSync_Product_Import_Template.csv'): void {
   const headers = [
     'Product Name',
     'SKU',

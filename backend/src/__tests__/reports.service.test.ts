@@ -1,3 +1,4 @@
+/// <reference types="jest" />
 import { getStockMovementsReport } from '../modules/reports/reports.service';
 import prisma from '../config/database';
 

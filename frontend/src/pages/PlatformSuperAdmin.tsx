@@ -326,7 +326,7 @@ export const PlatformSuperAdmin: React.FC<PlatformSuperAdminProps> = ({ initialT
                       <span>🛡️</span> SaaS Operator Governance
                     </h3>
                     <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '13.5px', lineHeight: '1.6' }}>
-                      This administrative command center allows global platform management for the StockPulse multi-tenant cluster. As a Super Admin, you are authorized to provision brand new tenant business spaces, supervise commercial subscriptions, audit platform-wide payment approvals, and initiate secure diagnostics via timed customer impersonation sessions.
+                      This administrative command center allows global platform management for the VyaaparSync multi-tenant cluster. As a Super Admin, you are authorized to provision brand new tenant business spaces, supervise commercial subscriptions, audit platform-wide payment approvals, and initiate secure diagnostics via timed customer impersonation sessions.
                     </p>
                   </div>
                   <div style={{ marginTop: '20px', padding: '12px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 'var(--radius-md)', fontSize: '12.5px', color: '#fbbf24' }}>

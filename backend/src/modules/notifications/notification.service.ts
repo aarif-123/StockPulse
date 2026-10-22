@@ -1,4 +1,4 @@
-import { OrgRole, NotificationType, NotificationSeverity } from '@prisma/client';
+import { OrgRole, NotificationType, NotificationSeverity, Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 
 export interface CreateNotificationInput {
@@ -10,7 +10,7 @@ export interface CreateNotificationInput {
   title: string;
   message: string;
   actionUrl?: string;
-  payload?: any;
+  payload?: Prisma.InputJsonValue;
 }
 
 export async function createNotification(input: CreateNotificationInput) {
@@ -48,12 +48,12 @@ export async function getUserNotifications(
   const { unreadOnly = false, page = 1, limit = 25, search, severity, type, startDate, endDate, sortOrder = 'desc' } = query || {};
   const skip = (page - 1) * limit;
 
-  const OR_CONDITIONS: any[] = [{ userId }];
+  const OR_CONDITIONS: Prisma.NotificationWhereInput[] = [{ userId }];
   if (userRole) {
     OR_CONDITIONS.push({ targetRole: userRole });
   }
 
-  const createdAtClause: any = {};
+  const createdAtClause: Prisma.DateTimeFilter = {};
   if (startDate) createdAtClause.gte = new Date(startDate);
   if (endDate) {
     const end = new Date(endDate);
@@ -61,7 +61,7 @@ export async function getUserNotifications(
     createdAtClause.lte = end;
   }
 
-  const where: any = {
+  const where: Prisma.NotificationWhereInput = {
     organizationId,
     OR: OR_CONDITIONS,
     ...(unreadOnly && { isRead: false }),
@@ -123,7 +123,7 @@ export async function markAsRead(notificationId: string, organizationId: string)
 }
 
 export async function markAllAsRead(organizationId: string, userId: string, userRole?: OrgRole) {
-  const OR_CONDITIONS: any[] = [{ userId }];
+  const OR_CONDITIONS: Prisma.NotificationWhereInput[] = [{ userId }];
   if (userRole) {
     OR_CONDITIONS.push({ targetRole: userRole });
   }

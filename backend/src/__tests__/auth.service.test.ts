@@ -1,3 +1,4 @@
+/// <reference types="jest" />
 import bcrypt from 'bcrypt';
 import { authService } from '../modules/auth/auth.service';
 import prisma from '../config/database';

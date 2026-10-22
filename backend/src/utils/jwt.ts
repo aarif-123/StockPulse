@@ -1,8 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
-import { AuthenticatedUserPayload } from '../types/auth';
+import type { AuthenticatedUserPayload } from '../types/auth';
 
-export interface JwtPayload extends AuthenticatedUserPayload {}
+export type JwtPayload = AuthenticatedUserPayload;
 
 /**
  * Signs a new JWT containing minimal user identity and superAdmin flag.

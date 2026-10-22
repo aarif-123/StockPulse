@@ -43,7 +43,7 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
           <div className="po-header-card">
             <div>
               <div className="fs-12 color-tertiary">ISSUED BY</div>
-              <div className="fw-700 fs-15 color-primary">StockPulse Enterprise Solutions</div>
+              <div className="fw-700 fs-15 color-primary">VyaaparSync Enterprise Solutions</div>
               <div className="fs-12 color-secondary">Operations & Supply Chain Center</div>
             </div>
             <div className="text-right">

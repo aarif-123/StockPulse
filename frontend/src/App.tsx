@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { ThemeProvider } from './hooks/useTheme';
 import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { SidebarLayout } from './components/layout/SidebarLayout';
 import { PlatformLayout } from './components/layout/PlatformLayout';
@@ -50,9 +51,10 @@ const HomeOrDashboard: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
           {/* Public SaaS Landing Page */}
           <Route path="/" element={<HomeOrDashboard />} />
           <Route path="/welcome" element={<Landing />} />
@@ -229,11 +231,12 @@ const App: React.FC = () => {
             />
           </Route>
 
-          {/* Catch-all redirect to home */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            {/* Catch-all redirect to home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
 

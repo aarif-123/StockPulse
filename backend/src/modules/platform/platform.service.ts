@@ -4,7 +4,7 @@ import { AppError } from '../../middleware/error-handler';
 import { auditService } from '../audit/audit.service';
 import { ManualUpiPaymentProvider } from '../payments/providers/manual-upi.provider';
 import { signToken } from '../../utils/jwt';
-import { OrgRole, OrgStatus, Prisma, UserStatus, SubscriptionStatus, BillingCycle } from '@prisma/client';
+import { OrgRole, OrgStatus, Prisma, UserStatus, SubscriptionStatus, BillingCycle, PaymentRequestStatus } from '@prisma/client';
 import { invalidateTenantCache } from '../../middleware/tenant-context';
 import { invalidateFeatureCache } from '../subscriptions/entitlement.service';
 
@@ -772,7 +772,7 @@ export const platformService = {
   async listPaymentRequests(status?: string) {
     const where: Prisma.PaymentRequestWhereInput = {};
     if (status) {
-      where.status = status as any;
+      where.status = status as PaymentRequestStatus;
     }
 
     return prisma.paymentRequest.findMany({

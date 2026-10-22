@@ -1,8 +1,8 @@
-﻿# StockPulse - Mini ERP + CRM Operations Portal
+# VyaaparSync - Mini ERP + CRM Operations Portal
 
 ## 1. Executive Summary
 
-StockPulse is a full-stack Mini ERP + CRM Operations Portal that manages customer relationships, product inventory, and sales delivery challans through a role-based web application.
+VyaaparSync is a full-stack Mini ERP + CRM Operations Portal that manages customer relationships, product inventory, and sales delivery challans through a role-based web application.
 
 The system implements four distinct user roles (ADMIN, SALES, WAREHOUSE, ACCOUNTS) with granular permission enforcement on every API route and every frontend page. Stock changes are only ever made through explicit inventory operations or challan confirmation, never through a direct product edit. Challan confirmation executes inside a Prisma transaction with a raw SELECT FOR UPDATE row-level lock to prevent concurrent double-booking.
 

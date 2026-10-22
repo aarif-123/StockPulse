@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { AppError } from '../../middleware/error-handler';
 import {
@@ -15,7 +16,7 @@ export const bomService = {
     const { page = 1, limit = 50, search, category } = query;
     const skip = (page - 1) * limit;
 
-    const where: any = {
+    const where: Prisma.BomAssemblyWhereInput = {
       organizationId,
       isActive: true,
     };
@@ -33,7 +34,7 @@ export const bomService = {
     }
 
     const [rawAssemblies, total] = await Promise.all([
-      (prisma as any).bomAssembly.findMany({
+      prisma.bomAssembly.findMany({
         where,
         include: {
           components: {
@@ -56,44 +57,54 @@ export const bomService = {
         skip,
         take: limit,
       }),
-      (prisma as any).bomAssembly.count({ where }),
+      prisma.bomAssembly.count({ where }),
     ]);
 
     // Calculate dynamic build capacity & bottleneck for each recipe
-    const assemblies = rawAssemblies.map((assembly: any) => {
+    const assemblies = rawAssemblies.map((assembly) => {
       let maxCanBuild = Infinity;
-      let bottleneckProduct: any = null;
+      let bottleneckProduct: {
+        id: string;
+        name: string;
+        sku: string;
+        currentStock: number;
+        qtyRequired: number;
+      } | null = null;
 
-      const detailedComponents = assembly.components.map((comp: any) => {
-        const onHand = comp.product?.currentStock ?? 0;
-        const possibleUnits = comp.qtyRequired > 0 ? Math.floor(onHand / comp.qtyRequired) : 0;
+      const detailedComponents = assembly.components.map((comp) => {
+        const product = comp.product;
+        const onHand = product?.currentStock ?? 0;
+        const qtyRequired = comp.qtyRequired;
+        const possibleUnits = qtyRequired > 0 ? Math.floor(onHand / qtyRequired) : 0;
 
         if (possibleUnits < maxCanBuild) {
           maxCanBuild = possibleUnits;
-          bottleneckProduct = {
-            id: comp.product?.id,
-            name: comp.product?.name,
-            sku: comp.product?.sku,
-            currentStock: onHand,
-            qtyRequired: comp.qtyRequired,
-          };
+          bottleneckProduct = product
+            ? {
+                id: product.id,
+                name: product.name,
+                sku: product.sku,
+                currentStock: onHand,
+                qtyRequired,
+              }
+            : null;
         }
 
         return {
           id: comp.id,
           productId: comp.productId,
-          productName: comp.product?.name || 'Unknown Product',
-          productSku: comp.product?.sku || 'N/A',
-          unitPrice: Number(comp.product?.unitPrice || 0),
+          productName: product?.name || 'Unknown Product',
+          productSku: product?.sku || 'N/A',
+          unitPrice: Number(product?.unitPrice || 0),
           currentStock: onHand,
-          qtyRequired: comp.qtyRequired,
-          hasEnoughStock: onHand >= comp.qtyRequired,
+          qtyRequired,
+          hasEnoughStock: onHand >= qtyRequired,
         };
       });
 
       const canAssembleQty = maxCanBuild === Infinity ? 0 : maxCanBuild;
       const totalComponentCost = detailedComponents.reduce(
-        (sum: number, c: any) => sum + c.unitPrice * c.qtyRequired,
+        (sum, c) => sum + c.unitPrice * c.qtyRequired,
         0
       );
 
@@ -106,7 +117,7 @@ export const bomService = {
         sellingPrice: Number(assembly.sellingPrice),
         totalComponentCost,
         canAssembleQty,
-        bottleneckProduct: canAssembleQty === 0 ? bottleneckProduct : undefined,
+        bottleneckProduct: canAssembleQty === 0 && bottleneckProduct ? bottleneckProduct : undefined,
         components: detailedComponents,
         createdAt: assembly.createdAt,
         updatedAt: assembly.updatedAt,
@@ -128,7 +139,7 @@ export const bomService = {
    * Get single BOM Assembly with full component breakdown
    */
   async getAssemblyById(organizationId: string, id: string) {
-    const assembly = await (prisma as any).bomAssembly.findFirst({
+    const assembly = await prisma.bomAssembly.findFirst({
       where: { id, organizationId },
       include: {
         components: {
@@ -151,7 +162,7 @@ export const bomService = {
    */
   async createAssembly(organizationId: string, input: CreateBomAssemblyInput) {
     // Check for SKU uniqueness in organization
-    const existing = await (prisma as any).bomAssembly.findFirst({
+    const existing = await prisma.bomAssembly.findFirst({
       where: { organizationId, sku: input.sku },
     });
 
@@ -169,7 +180,7 @@ export const bomService = {
       throw new AppError(400, 'One or more component products do not exist in your organization catalog');
     }
 
-    const assembly = await (prisma as any).bomAssembly.create({
+    const assembly = await prisma.bomAssembly.create({
       data: {
         organizationId,
         name: input.name,
@@ -200,7 +211,7 @@ export const bomService = {
    * Update existing BOM Assembly recipe
    */
   async updateAssembly(organizationId: string, id: string, input: UpdateBomAssemblyInput) {
-    const existing = await (prisma as any).bomAssembly.findFirst({
+    const existing = await prisma.bomAssembly.findFirst({
       where: { id, organizationId },
       include: { components: true },
     });
@@ -209,7 +220,7 @@ export const bomService = {
       throw new AppError(404, 'BOM Assembly recipe not found');
     }
 
-    return await prisma.$transaction(async (tx: any) => {
+    return await prisma.$transaction(async (tx) => {
       // If components are provided, replace them
       if (input.components) {
         await tx.bomComponent.deleteMany({
@@ -251,7 +262,7 @@ export const bomService = {
    * Delete a BOM Assembly recipe
    */
   async deleteAssembly(organizationId: string, id: string) {
-    const existing = await (prisma as any).bomAssembly.findFirst({
+    const existing = await prisma.bomAssembly.findFirst({
       where: { id, organizationId },
     });
 
@@ -259,7 +270,7 @@ export const bomService = {
       throw new AppError(404, 'BOM Assembly recipe not found');
     }
 
-    await (prisma as any).bomAssembly.delete({
+    await prisma.bomAssembly.delete({
       where: { id },
     });
 
@@ -278,7 +289,7 @@ export const bomService = {
   ) {
     const { quantity = 1, notes } = input;
 
-    return await prisma.$transaction(async (tx: any) => {
+    return await prisma.$transaction(async (tx) => {
       // 1. Fetch assembly with components
       const assembly = await tx.bomAssembly.findFirst({
         where: { id: assemblyId, organizationId },
@@ -295,12 +306,14 @@ export const bomService = {
         throw new AppError(404, 'BOM Assembly recipe not found');
       }
 
-      if (assembly.components.length === 0) {
+      const components = assembly.components;
+
+      if (components.length === 0) {
         throw new AppError(400, 'This assembly recipe has no components defined');
       }
 
       // 2. Validate stock availability for all components
-      for (const comp of assembly.components) {
+      for (const comp of components) {
         const totalNeeded = comp.qtyRequired * quantity;
         const available = comp.product?.currentStock ?? 0;
 
@@ -313,7 +326,7 @@ export const bomService = {
       }
 
       // 3. Atomically decrement stock and create StockMovement records
-      for (const comp of assembly.components) {
+      for (const comp of components) {
         const totalNeeded = comp.qtyRequired * quantity;
 
         // Decrement Product stock
@@ -362,8 +375,8 @@ export const bomService = {
             assemblyName: assembly.name,
             sku: assembly.sku,
             quantityBuilt: quantity,
-            componentsDeducted: assembly.components.map((c: any) => ({
-              productSku: c.product.sku,
+            componentsDeducted: components.map((c) => ({
+              productSku: c.product?.sku,
               deducted: c.qtyRequired * quantity,
             })),
           }),

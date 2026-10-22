@@ -1026,7 +1026,7 @@ export const NotificationHistory: React.FC = () => {
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--border-color, #2d2d38)', fontSize: '12.5px' }}>
                       <span style={{ color: 'var(--text-tertiary, #94a3b8)' }}>Workspace Organization</span>
-                      <span style={{ color: 'var(--text-primary, #ffffff)', fontWeight: 600 }}>{activeOrg?.organizationName || 'StockPulse'}</span>
+                      <span style={{ color: 'var(--text-primary, #ffffff)', fontWeight: 600 }}>{activeOrg?.organizationName || 'VyaaparSync'}</span>
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', fontSize: '12.5px' }}>

@@ -2,7 +2,7 @@ import { productService } from '../services/product.service';
 import { customerService } from '../services/customer.service';
 import { challanService } from '../services/challan.service';
 import { dashboardService } from '../services/dashboard.service';
-import { reportService } from '../services/report.service';
+import { reportService, type DeadStockProductItem } from '../services/report.service';
 import { bomService } from '../services/bom.service';
 import { platformService } from '../services/platform.service';
 import type { User, UserOrganizationSummary } from '../types';
@@ -601,7 +601,7 @@ async function processPlatformAdminQuery(
             actionType: 'UPDATE_ORG_STATUS',
             title: `${suspendMatch ? 'Suspend' : 'Activate'} Organization ${targetOrg.name}`,
             description: suspendMatch
-              ? `🚨 **Warning**: Suspending **${targetOrg.name}** will immediately block all its users from logging in or using the StockPulse platform.`
+              ? `🚨 **Warning**: Suspending **${targetOrg.name}** will immediately block all its users from logging in or using the VyaaparSync platform.`
               : `Activating **${targetOrg.name}** will restore tenant access and login functionality.`,
             isSerious: suspendMatch,
             seriousWarning: suspendMatch
@@ -812,16 +812,17 @@ export async function processCopilotQuery(
 
   // Role Gate Checks for regular business dispatches & operations
   const isStockAction =
-    clean.includes('move stock') ||
-    clean.includes('add stock') ||
-    clean.includes('inward stock') ||
-    clean.includes('outward stock') ||
-    clean.includes('adjust stock') ||
-    clean.includes('receive stock') ||
-    clean.includes('deduct stock') ||
-    clean.includes('reduce stock') ||
-    clean.includes('restock') ||
-    (clean.includes('stock') && (clean.includes('inward') || clean.includes('outward') || clean.includes('in') || clean.includes('out')));
+    (clean.includes('move stock') ||
+      clean.includes('add stock') ||
+      clean.includes('inward stock') ||
+      clean.includes('outward stock') ||
+      clean.includes('adjust stock') ||
+      clean.includes('receive stock') ||
+      clean.includes('deduct stock') ||
+      clean.includes('reduce stock') ||
+      clean.includes('restock') ||
+      /\b(stock inward|stock outward|stock in|stock out|inward \d+|outward \d+|add \d+ stock|deduct \d+ stock|move \d+ stock)\b/i.test(clean)) &&
+    !/\b(dead|dormant|idle|stagnant|show|list|view|what is|how much|valuation|health|analytics)\b/i.test(clean);
 
   const isBomAction =
     clean.includes('bill of materials') ||
@@ -1281,7 +1282,7 @@ export async function processCopilotQuery(
       summaryDetails: [
         { label: 'Customer', value: targetCustomer.businessName || targetCustomer.name, highlight: true },
         { label: 'Product Item', value: `${targetProduct.name} (${targetProduct.sku})` },
-        { label: 'Dispatch Quantity', value: `${quantity} units`, highlight: true, color: '#38bdf8' },
+        { label: 'Dispatch Quantity', value: `${quantity} units`, highlight: true, color: 'var(--info)' },
         { label: 'Unit Price', value: `₹${Number(targetProduct.unitPrice).toLocaleString('en-IN')}` },
         { label: 'Est. Total Value', value: `₹${totalEstimatedAmount.toLocaleString('en-IN')}`, color: 'var(--success)' },
         { label: 'Available Stock', value: `${targetProduct.currentStock} units in warehouse` },
@@ -1321,16 +1322,17 @@ export async function processCopilotQuery(
   // ACTION 2: MOVE STOCK (INWARD / OUTWARD ADJUSTMENTS)
   // =========================================================================
   if (
-    clean.includes('move stock') ||
-    clean.includes('add stock') ||
-    clean.includes('inward stock') ||
-    clean.includes('outward stock') ||
-    clean.includes('adjust stock') ||
-    clean.includes('receive stock') ||
-    clean.includes('deduct stock') ||
-    clean.includes('reduce stock') ||
-    clean.includes('restock') ||
-    (clean.includes('stock') && (clean.includes('inward') || clean.includes('outward') || clean.includes('in') || clean.includes('out')))
+    (clean.includes('move stock') ||
+      clean.includes('add stock') ||
+      clean.includes('inward stock') ||
+      clean.includes('outward stock') ||
+      clean.includes('adjust stock') ||
+      clean.includes('receive stock') ||
+      clean.includes('deduct stock') ||
+      clean.includes('reduce stock') ||
+      clean.includes('restock') ||
+      /\b(stock inward|stock outward|stock in|stock out|inward \d+|outward \d+|add \d+ stock|deduct \d+ stock|move \d+ stock)\b/i.test(clean)) &&
+    !/\b(dead|dormant|idle|stagnant|show|list|view|what is|how much|valuation|health|analytics)\b/i.test(clean)
   ) {
     const prodRes = await productService.getProducts({ limit: 100 }).catch(() => ({ data: [] }));
     const products = prodRes.data || [];
@@ -1868,6 +1870,66 @@ export async function processCopilotQuery(
         'tell me the pending chalana',
       ],
     };
+  }
+
+  // -------------------------------------------------------------
+  // 6a-2. DEAD STOCK & DORMANT INVENTORY ANALYSIS INTENT
+  // -------------------------------------------------------------
+  if (
+    clean.includes('dead stock') ||
+    clean.includes('dead inventory') ||
+    clean.includes('dormant') ||
+    clean.includes('idle stock') ||
+    clean.includes('stagnant') ||
+    clean.includes('slow moving') ||
+    (clean.includes('dead') && (clean.includes('stock') || clean.includes('inventory') || clean.includes('item')))
+  ) {
+    try {
+      const res = await reportService.getAnalytics('30d');
+      const deadItems: DeadStockProductItem[] = res.data?.deadStockProducts || [];
+      const totalCapital = res.data?.totalDeadStockCapital || 0;
+      const formattedCapital =
+        totalCapital >= 10000000
+          ? `₹${(totalCapital / 10000000).toFixed(2)} Cr`
+          : totalCapital >= 100000
+          ? `₹${(totalCapital / 100000).toFixed(2)} L`
+          : `₹${totalCapital.toLocaleString('en-IN')}`;
+
+      if (deadItems.length === 0) {
+        return {
+          text: `🎉 **Zero Dead Stock Detected!**\n\nAll inventory lines in **${orgName}** have active throughput within the last 90 days. No capital is currently trapped in stagnant items.`,
+          suggestedPrompts: [
+            'Show low stock products',
+            'What is our total inventory valuation?',
+            'tell me the pending chalana',
+          ],
+        };
+      }
+
+      return {
+        text: `🛑 **Dead Stock & Capital Lockup in ${orgName}:**\n\nYou have **${formattedCapital}** in working capital trapped across **${deadItems.length} dead/dormant SKUs** with zero sales or dispatches for 90+ days.\n\nRecommended: Liquidate dormant lines via clearance challans or vendor returns to restore cash flow liquidity.`,
+        cardData: {
+          type: 'products',
+          items: deadItems.slice(0, 6).map((d: DeadStockProductItem) => ({
+            id: d.productId,
+            name: d.productName,
+            sku: d.sku,
+            category: d.category || 'General',
+            currentStock: d.currentStock,
+            unitPrice: d.currentStock > 0 ? Math.round(d.lockedCost / d.currentStock) : 0,
+            minimumStock: 0,
+          })),
+        },
+        suggestedPrompts: [
+          '⚡ Create delivery challan',
+          '🧠 Analyse inventory holding costs & dead capital',
+          'What is our total inventory valuation?',
+          'Show low stock products',
+        ],
+      };
+    } catch {
+      // Fallback to intelligence escalation if reportService fails
+    }
   }
 
   // -------------------------------------------------------------

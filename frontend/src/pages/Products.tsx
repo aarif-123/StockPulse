@@ -38,6 +38,7 @@ export const Products: React.FC = () => {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const urlLowStock = searchParams.get('lowStock') === 'true';
+  const urlSearch = searchParams.get('search') || searchParams.get('q') || '';
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +47,7 @@ export const Products: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(urlSearch);
   const [category, setCategory] = useState('');
   const [lowStock, setLowStock] = useState(urlLowStock);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'stock_desc' | 'stock_asc' | 'price_desc'>('newest');
@@ -73,7 +74,11 @@ export const Products: React.FC = () => {
     return saved ? Number(saved) : 10;
   });
 
-  useEffect(() => { setLowStock(urlLowStock); setPage(1); }, [urlLowStock]);
+  useEffect(() => {
+    setLowStock(urlLowStock);
+    if (urlSearch) setSearch(urlSearch);
+    setPage(1);
+  }, [urlLowStock, urlSearch]);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);

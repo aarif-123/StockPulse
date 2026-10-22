@@ -11,6 +11,9 @@ const rawPrisma = new PrismaClient({
       : ['warn', 'error'],
 });
 
+const TRANSIENT_PRISMA_CODES = new Set(['P1001', 'P1008', 'P1017', 'P2024']);
+const TRANSIENT_MSG_REGEX = /ConnectionReset|10054|closed the connection|connection pool|forcibly closed/i;
+
 // Resilient query layer that gracefully handles PostgreSQL connection resets and pool timeouts
 const prisma = rawPrisma.$extends({
   query: {
@@ -18,17 +21,11 @@ const prisma = rawPrisma.$extends({
       async $allOperations({ args, query }) {
         try {
           return await query(args);
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const err = error as { code?: string; message?: string } | undefined;
           const isTransient =
-            error?.code === 'P1017' || // Server has closed the connection
-            error?.code === 'P2024' || // Timed out fetching a new connection from connection pool
-            error?.code === 'P1001' || // Can't reach database server
-            error?.code === 'P1008' || // Operations timed out
-            error?.message?.includes('ConnectionReset') ||
-            error?.message?.includes('10054') ||
-            error?.message?.includes('closed the connection') ||
-            error?.message?.includes('connection pool') ||
-            error?.message?.includes('forcibly closed');
+            (err?.code ? TRANSIENT_PRISMA_CODES.has(err.code) : false) ||
+            (err?.message ? TRANSIENT_MSG_REGEX.test(err.message) : false);
 
           if (isTransient) {
             // Force Prisma to reconnect and retry with backoff

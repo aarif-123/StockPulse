@@ -40,7 +40,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         <div className="card error-card" style={{ maxWidth: '520px', margin: '40px auto', padding: '24px', textAlign: 'center' }}>
           <h2 style={{ color: '#ef4444' }}>Platform Super Admin Access Required</h2>
           <p style={{ color: '#64748b', marginTop: '12px' }}>
-            This portal is restricted to StockPulse Platform Super Administrators.
+            This portal is restricted to VyaaparSync Platform Super Administrators.
           </p>
           <a href="/dashboard" className="btn btn-primary" style={{ marginTop: '16px', display: 'inline-block' }}>
             Back to Organization Dashboard

@@ -8,7 +8,7 @@ import { PermissionCode } from '../config/permissions';
  * Must be used after authenticate and resolveTenantContext.
  */
 export function authorize(...roles: (OrgRole | OrgRole[] | string | string[])[]) {
-  const allowedRoles = (roles as any[]).flat().map((r) => String(r));
+  const allowedRoles = (roles as unknown[]).flat().map((r) => String(r));
   return (req: Request, _res: Response, next: NextFunction): void => {
     if (!req.user) {
       return next(AppError.unauthorized('Authentication required.'));

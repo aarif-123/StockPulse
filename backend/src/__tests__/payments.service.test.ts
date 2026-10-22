@@ -1,5 +1,4 @@
 import { ManualUpiPaymentProvider } from '../modules/payments/providers/manual-upi.provider';
-import prisma from '../config/database';
 
 jest.mock('../config/database', () => ({
   __esModule: true,
@@ -37,6 +36,9 @@ jest.mock('../config/database', () => ({
         billingCycle: 'MONTHLY',
         referenceNumber: 'UTR-123456789012',
       }),
+    },
+    organization: {
+      update: jest.fn().mockResolvedValue({ id: 'org-test-1', status: 'ACTIVE' }),
     },
     $transaction: jest.fn((cb) => cb({
       paymentRequest: {
@@ -85,10 +87,11 @@ describe('Manual UPI Payment Provider Tests', () => {
       billingCycle: 'MONTHLY',
       amountINR: 499,
       referenceNumber: 'UTR-123456789012',
+      submittedByUserId: 'user-1',
     });
 
     expect(result.paymentRequestId).toBe('pay-req-123');
-    expect(result.upiQrData?.upiId).toBe('stockpulse.saas@hdfcbank');
+    expect(result.upiQrData?.upiId).toBe('vyaaparsync.saas@hdfcbank');
     expect(result.upiQrData?.qrString).toContain('upi://pay');
     expect(result.amountINR).toBe(499);
   });

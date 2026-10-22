@@ -14,8 +14,8 @@ import {
 
 export class ManualUpiPaymentProvider implements IPaymentProvider {
   readonly providerName = PaymentMethod.UPI_MANUAL;
-  private readonly defaultUpiId = 'stockpulse.saas@hdfcbank';
-  private readonly payeeName = 'StockPulse Technologies';
+  private readonly defaultUpiId = 'vyaaparsync.saas@hdfcbank';
+  private readonly payeeName = 'VyaaparSync Technologies';
 
   /**
    * Generates a UPI intent / QR string and persists a PENDING PaymentRequest.
@@ -70,7 +70,7 @@ export class ManualUpiPaymentProvider implements IPaymentProvider {
         upiId: this.defaultUpiId,
         payeeName: this.payeeName,
         amountINR: params.amountINR,
-        transactionNote: `StockPulse ${plan.name} Subscription`,
+        transactionNote: `VyaaparSync ${plan.name} Subscription`,
         qrString,
       },
       message: 'Manual UPI Payment Request created. Please scan the QR code and submit your UTR reference number for approval.',

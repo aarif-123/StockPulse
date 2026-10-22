@@ -1,6 +1,6 @@
-# StockPulse Complete Route & API Reference Documentation
+# VyaaparSync Complete Route & API Reference Documentation
 
-This document provides a comprehensive reference of all **Backend REST API Endpoints** and **Frontend Web Application Routes** in StockPulse, detailing their descriptions, parameters, authentication requirements, header requirements, and Role-Based Access Control (RBAC).
+This document provides a comprehensive reference of all **Backend REST API Endpoints** and **Frontend Web Application Routes** in VyaaparSync, detailing their descriptions, parameters, authentication requirements, header requirements, and Role-Based Access Control (RBAC).
 
 ---
 

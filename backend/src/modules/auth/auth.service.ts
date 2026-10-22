@@ -255,8 +255,8 @@ export const authService = {
         id: user.id,
         name: user.name,
         email: user.email,
-        phone: (user as any).phone || undefined,
-        avatarUrl: (user as any).avatarUrl || undefined,
+        phone: (user as { phone?: string | null }).phone || undefined,
+        avatarUrl: (user as { avatarUrl?: string | null }).avatarUrl || undefined,
         isSuperAdmin: user.isSuperAdmin,
         status: user.status,
         lastLoginAt: user.lastLoginAt,
@@ -266,7 +266,7 @@ export const authService = {
   },
 
   async updateProfile(userId: string, input: { name?: string; phone?: string; avatarUrl?: string }) {
-    const data: any = {};
+    const data: { name?: string; phone?: string; avatarUrl?: string } = {};
     if (input.name) data.name = input.name;
     if (input.phone !== undefined) data.phone = input.phone;
     if (input.avatarUrl !== undefined) data.avatarUrl = input.avatarUrl;
