@@ -86,7 +86,7 @@ describe('Customer Service (Multi-Tenant)', () => {
       });
 
       expect(result).toBeDefined();
-      expect((result as any).id).toBe('cust-1');
+      expect((result as { id: string }).id).toBe('cust-1');
     });
   });
 
@@ -96,7 +96,7 @@ describe('Customer Service (Multi-Tenant)', () => {
 
       const result = await getCustomerById('org-test-1', 'cust-1');
       expect(result).toBeDefined();
-      expect((result as any).id).toBe('cust-1');
+      expect((result as { id: string }).id).toBe('cust-1');
       expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ id: 'cust-1', organizationId: 'org-test-1' }),

@@ -34,7 +34,7 @@ jest.mock('@prisma/client', () => {
     create: jest.fn(),
   };
 
-  const mClient: any = {
+  const mClient: Record<string, unknown> = {
     bomAssembly: mBomAssembly,
     bomComponent: mBomComponent,
     product: mProduct,
@@ -42,7 +42,7 @@ jest.mock('@prisma/client', () => {
     bomBuildLog: mBomBuildLog,
     auditLog: mAuditLog,
     $extends: jest.fn(() => mClient),
-    $transaction: jest.fn(async (cb: any) => {
+    $transaction: jest.fn(async (cb: (tx: unknown) => unknown) => {
       return cb(mClient);
     }),
   };
@@ -130,7 +130,7 @@ describe('BOM & Production Assemblies Service Unit Tests', () => {
       ],
     });
 
-    expect((res as any).sku).toBe('KIT-CUSTOM-1');
+    expect((res as { sku: string }).sku).toBe('KIT-CUSTOM-1');
     expect(prismaMock.bomAssembly.create).toHaveBeenCalledTimes(1);
   });
 
